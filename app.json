@@ -41,6 +41,8 @@
           }
         }
       ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/crashlytics",
       "expo-secure-store",
       "expo-notifications",
       "expo-sqlite"
