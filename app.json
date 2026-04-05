@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ugadooga.habitcoach"
+      "bundleIdentifier": "com.ugadooga.aihabitcoach"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.ugadooga.habitcoach"
+      "package": "com.ugadooga.aihabitcoach"
     },
     "web": {
       "output": "static",
