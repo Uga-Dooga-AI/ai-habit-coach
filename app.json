@@ -51,8 +51,10 @@
     },
     "extra": {
       "eas": {
-        "projectId": ""
-      }
-    }
+        "projectId": "81718728-753c-4186-b196-d270b169d1e8"
+      },
+      "router": {}
+    },
+    "owner": "uga-dooga"
   }
 }
