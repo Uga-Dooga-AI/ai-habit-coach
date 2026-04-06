@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAuthInit } from '@/hooks/use-auth';
 import { initObservability, recordNonFatal } from '@/lib/observability';
 
 export const unstable_settings = {
@@ -13,6 +14,7 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  useAuthInit();
 
   useEffect(() => {
     initObservability().catch((err) =>
