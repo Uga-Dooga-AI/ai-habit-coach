@@ -22,7 +22,15 @@ const firebaseConfig = {
 let app: FirebaseApp;
 let auth: Auth;
 
+export function isFirebaseConfigured(): boolean {
+  return Object.values(firebaseConfig).every(Boolean);
+}
+
 function ensureInitialized() {
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase is not configured for this build');
+  }
+
   if (getApps().length === 0) {
     app = initializeApp(firebaseConfig);
     auth = initializeAuth(app, {
