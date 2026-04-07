@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import type { Habit, HabitLog, Profile, WeeklyInsight, HabitCategory, HabitFrequency, LogStatus } from './types';
+import type { Habit, HabitLog, Profile, WeeklyInsight, HabitCategory, HabitFrequency, LogStatus, SubscriptionTier } from './types';
 
 // --- Profile ---
 
@@ -10,6 +10,9 @@ function rowToProfile(row: Record<string, unknown>): Profile {
     displayName: row.display_name as string | null,
     goal: row.goal as string | null,
     onboardingCompleted: row.onboarding_completed as boolean,
+    subscriptionTier: (row.subscription_tier as SubscriptionTier) ?? 'free',
+    quietHoursStart: (row.quiet_hours_start as string | null) ?? null,
+    quietHoursEnd: (row.quiet_hours_end as string | null) ?? null,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
@@ -34,11 +37,21 @@ export async function getOrCreateProfile(firebaseUid: string, displayName?: stri
   return rowToProfile(created);
 }
 
-export async function updateProfile(profileId: string, updates: Partial<{ displayName: string; goal: string; onboardingCompleted: boolean }>): Promise<Profile> {
+export async function updateProfile(profileId: string, updates: Partial<{
+  displayName: string;
+  goal: string;
+  onboardingCompleted: boolean;
+  subscriptionTier: SubscriptionTier;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
+}>): Promise<Profile> {
   const dbUpdates: Record<string, unknown> = {};
   if (updates.displayName !== undefined) dbUpdates.display_name = updates.displayName;
   if (updates.goal !== undefined) dbUpdates.goal = updates.goal;
   if (updates.onboardingCompleted !== undefined) dbUpdates.onboarding_completed = updates.onboardingCompleted;
+  if (updates.subscriptionTier !== undefined) dbUpdates.subscription_tier = updates.subscriptionTier;
+  if (updates.quietHoursStart !== undefined) dbUpdates.quiet_hours_start = updates.quietHoursStart;
+  if (updates.quietHoursEnd !== undefined) dbUpdates.quiet_hours_end = updates.quietHoursEnd;
 
   const { data, error } = await supabase
     .from('profiles')
@@ -66,6 +79,8 @@ function rowToHabit(row: Record<string, unknown>): Habit {
     notificationId: row.notification_id as string | null,
     isActive: row.is_active as boolean,
     isAiSuggested: row.is_ai_suggested as boolean,
+    archivedAt: row.archived_at !== undefined ? (row.archived_at as string | null) : null,
+    notificationsEnabled: row.notifications_enabled !== undefined ? (row.notifications_enabled as boolean) : true,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
@@ -77,10 +92,32 @@ export async function fetchHabits(userId: string): Promise<Habit[]> {
     .select('*')
     .eq('user_id', userId)
     .eq('is_active', true)
+    .is('archived_at', null)
     .order('created_at', { ascending: true });
 
   if (error) throw error;
   return (data ?? []).map(rowToHabit);
+}
+
+export async function fetchArchivedHabits(userId: string): Promise<Habit[]> {
+  const { data, error } = await supabase
+    .from('habits')
+    .select('*')
+    .eq('user_id', userId)
+    .not('archived_at', 'is', null)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map(rowToHabit);
+}
+
+export async function deleteHabit(habitId: string): Promise<void> {
+  const { error } = await supabase
+    .from('habits')
+    .delete()
+    .eq('id', habitId);
+
+  if (error) throw error;
 }
 
 export async function createHabit(params: {
@@ -120,6 +157,9 @@ export async function updateHabit(habitId: string, updates: Partial<{
   reminderTime: string | null;
   notificationId: string | null;
   isActive: boolean;
+  archivedAt: string | null;
+  notificationsEnabled: boolean;
+  frequency: HabitFrequency;
 }>): Promise<Habit> {
   const dbUpdates: Record<string, unknown> = {};
   if (updates.name !== undefined) dbUpdates.name = updates.name;
@@ -129,6 +169,9 @@ export async function updateHabit(habitId: string, updates: Partial<{
   if (updates.reminderTime !== undefined) dbUpdates.reminder_time = updates.reminderTime;
   if (updates.notificationId !== undefined) dbUpdates.notification_id = updates.notificationId;
   if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+  if (updates.archivedAt !== undefined) dbUpdates.archived_at = updates.archivedAt;
+  if (updates.notificationsEnabled !== undefined) dbUpdates.notifications_enabled = updates.notificationsEnabled;
+  if (updates.frequency !== undefined) dbUpdates.frequency = updates.frequency;
 
   const { data, error } = await supabase
     .from('habits')

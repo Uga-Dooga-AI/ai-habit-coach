@@ -7,6 +7,10 @@ export const AnalyticsUserProperty = {
   TIMEZONE: 'timezone',
   DAYS_SINCE_INSTALL: 'days_since_install',
   PLATFORM: 'platform',
+  // Sprint 2 A/B experiment variant properties — set on every session so AppMetrica
+  // can segment events and revenue metrics by active variant.
+  PAYWALL_CTA_VARIANT: 'paywall_cta_variant',
+  PAYWALL_PRICE_DISPLAY: 'paywall_price_display',
 } as const;
 
 export type AnalyticsUserPropertyKey = typeof AnalyticsUserProperty[keyof typeof AnalyticsUserProperty];

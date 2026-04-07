@@ -60,6 +60,8 @@ function makeHabit(overrides: Partial<Habit> = {}): Habit {
     notificationId: null,
     isActive: true,
     isAiSuggested: false,
+    archivedAt: null,
+    notificationsEnabled: true,
     createdAt: '2026-04-01T00:00:00.000Z',
     updatedAt: '2026-04-01T00:00:00.000Z',
     ...overrides,

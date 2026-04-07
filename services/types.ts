@@ -1,6 +1,7 @@
 export type HabitCategory = 'health' | 'mindfulness' | 'fitness' | 'learning' | 'productivity' | 'general';
 export type HabitFrequency = 'daily' | 'weekdays' | 'weekends';
 export type LogStatus = 'done' | 'skipped' | 'missed' | 'pending';
+export type SubscriptionTier = 'free' | 'premium' | 'trial';
 
 export interface Profile {
   id: string;
@@ -8,6 +9,9 @@ export interface Profile {
   displayName: string | null;
   goal: string | null;
   onboardingCompleted: boolean;
+  subscriptionTier: SubscriptionTier;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -24,6 +28,8 @@ export interface Habit {
   notificationId: string | null;
   isActive: boolean;
   isAiSuggested: boolean;
+  archivedAt: string | null;
+  notificationsEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }

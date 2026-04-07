@@ -4,6 +4,8 @@ import {
   fetchHabits,
   createHabit,
   updateHabit,
+  deleteHabit as deleteHabitService,
+  fetchArchivedHabits,
   fetchLogsForDate,
   fetchLogsForDateRange,
   upsertHabitLog,
@@ -13,23 +15,26 @@ import {
   getOrCreateProfile,
   updateProfile,
 } from '@/services/habits';
+import { getSubscriptionStatus } from '@/services/subscription';
 import { getCheckinMessage, generateWeeklyInsights } from '@/services/ai-coach';
 import {
   scheduleDailyReminder,
   cancelHabitReminder,
   requestNotificationPermission,
 } from '@/services/notifications';
-import type { Habit, HabitLog, HabitWithStreak, Profile, WeeklyInsight, HabitCategory, HabitFrequency } from '@/services/types';
+import type { Habit, HabitLog, HabitWithStreak, Profile, WeeklyInsight, HabitCategory, HabitFrequency, SubscriptionTier } from '@/services/types';
 
 const CACHE_PREFIX = 'habit_logs_';
 const PROFILE_CACHE_KEY = 'profile_cache';
 
 interface HabitState {
   habits: Habit[];
+  archivedHabits: Habit[];
   todayLogs: HabitLog[];
   recentLogs: HabitLog[]; // last 30 days
   profile: Profile | null;
   latestInsight: WeeklyInsight | null;
+  subscriptionTier: SubscriptionTier;
   loading: boolean;
   error: string | null;
   today: string; // "YYYY-MM-DD"
@@ -41,6 +46,8 @@ interface HabitActions {
   loadTodayLogs: (userId: string) => Promise<void>;
   loadRecentLogs: (userId: string) => Promise<void>;
   loadLatestInsight: (userId: string) => Promise<void>;
+  loadSubscription: () => Promise<void>;
+  loadArchivedHabits: (userId: string) => Promise<void>;
 
   completeHabit: (habitId: string, userId: string) => Promise<string>;
   skipHabit: (habitId: string, userId: string) => Promise<void>;
@@ -56,8 +63,20 @@ interface HabitActions {
     isAiSuggested?: boolean;
   }) => Promise<Habit>;
 
+  editHabit: (habitId: string, updates: {
+    name?: string;
+    category?: HabitCategory;
+    icon?: string;
+    description?: string;
+    frequency?: HabitFrequency;
+    reminderTime?: string | null;
+    notificationsEnabled?: boolean;
+  }) => Promise<Habit>;
+
+  deleteHabit: (habitId: string) => Promise<void>;
   setHabitReminder: (habitId: string, reminderTime: string) => Promise<void>;
   archiveHabit: (habitId: string) => Promise<void>;
+  restoreHabit: (habitId: string) => Promise<void>;
 
   completeOnboarding: (profileId: string, goal: string) => Promise<void>;
   generateInsights: (userId: string) => Promise<void>;
@@ -69,10 +88,12 @@ interface HabitActions {
 
 export const useHabitStore = create<HabitState & HabitActions>((set, get) => ({
   habits: [],
+  archivedHabits: [],
   todayLogs: [],
   recentLogs: [],
   profile: null,
   latestInsight: null,
+  subscriptionTier: 'free',
   loading: false,
   error: null,
   today: new Date().toISOString().split('T')[0],
@@ -150,6 +171,24 @@ export const useHabitStore = create<HabitState & HabitActions>((set, get) => ({
     }
   },
 
+  loadSubscription: async () => {
+    try {
+      const status = await getSubscriptionStatus();
+      set({ subscriptionTier: status.tier });
+    } catch (e) {
+      console.warn('loadSubscription error:', e);
+    }
+  },
+
+  loadArchivedHabits: async (userId) => {
+    try {
+      const archivedHabits = await fetchArchivedHabits(userId);
+      set({ archivedHabits });
+    } catch (e) {
+      console.warn('loadArchivedHabits error:', e);
+    }
+  },
+
   completeHabit: async (habitId, userId) => {
     const { habits, recentLogs, today } = get();
     const habit = habits.find((h) => h.id === habitId);
@@ -208,6 +247,11 @@ export const useHabitStore = create<HabitState & HabitActions>((set, get) => ({
   },
 
   addHabit: async (params) => {
+    const { habits, subscriptionTier } = get();
+    if (subscriptionTier === 'free' && habits.length >= 3) {
+      throw new Error('PAYWALL');
+    }
+
     const habit = await createHabit(params);
 
     if (params.reminderTime) {
@@ -250,11 +294,59 @@ export const useHabitStore = create<HabitState & HabitActions>((set, get) => ({
     }));
   },
 
+  editHabit: async (habitId, updates) => {
+    const { habits } = get();
+    const existing = habits.find((h) => h.id === habitId);
+    const dbUpdates = { ...updates };
+
+    // Handle reminder scheduling/cancellation
+    if (updates.reminderTime !== undefined && updates.reminderTime !== null) {
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        const habitName = updates.name ?? existing?.name ?? '';
+        const notifId = await scheduleDailyReminder({
+          habitId,
+          habitName,
+          reminderTime: updates.reminderTime,
+        });
+        (dbUpdates as Record<string, unknown>).notificationId = notifId;
+      }
+    } else if (updates.reminderTime === null && existing?.notificationId) {
+      await cancelHabitReminder(habitId);
+      (dbUpdates as Record<string, unknown>).notificationId = null;
+    }
+
+    const updated = await updateHabit(habitId, dbUpdates as Parameters<typeof updateHabit>[1]);
+    set((state) => ({
+      habits: state.habits.map((h) => (h.id === habitId ? updated : h)),
+    }));
+    return updated;
+  },
+
+  deleteHabit: async (habitId) => {
+    await cancelHabitReminder(habitId);
+    await deleteHabitService(habitId);
+    set((state) => ({
+      habits: state.habits.filter((h) => h.id !== habitId),
+      archivedHabits: state.archivedHabits.filter((h) => h.id !== habitId),
+    }));
+  },
+
   archiveHabit: async (habitId) => {
-    await updateHabit(habitId, { isActive: false });
+    const archivedAt = new Date().toISOString();
+    const updated = await updateHabit(habitId, { isActive: false, archivedAt });
     await cancelHabitReminder(habitId);
     set((state) => ({
       habits: state.habits.filter((h) => h.id !== habitId),
+      archivedHabits: [updated, ...state.archivedHabits],
+    }));
+  },
+
+  restoreHabit: async (habitId) => {
+    const updated = await updateHabit(habitId, { isActive: true, archivedAt: null });
+    set((state) => ({
+      habits: [...state.habits, updated],
+      archivedHabits: state.archivedHabits.filter((h) => h.id !== habitId),
     }));
   },
 

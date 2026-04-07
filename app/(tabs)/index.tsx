@@ -9,10 +9,14 @@ import {
   RefreshControl,
   Modal,
   Animated,
+  Alert,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/use-auth';
 import { useHabitStore } from '@/stores/habit-store';
+import { useSubscription } from '@/hooks/use-subscription';
 import { useAnalytics, AnalyticsEvents } from '@/services/analytics';
+import { PaywallModal } from '@/components/paywall-modal';
 import type { HabitWithStreak } from '@/services/types';
 
 function getDayGreeting(): string {
@@ -60,17 +64,78 @@ function AIMessageModal({ visible, message, habitName, onClose }: AIMessageModal
   );
 }
 
-interface HabitCardProps {
-  habit: HabitWithStreak;
-  onComplete: (habit: HabitWithStreak) => void;
-  onSkip: (habit: HabitWithStreak) => void;
+interface HabitMenuModalProps {
+  visible: boolean;
+  habitName: string;
+  onEdit: () => void;
+  onArchive: () => void;
+  onDelete: () => void;
+  onClose: () => void;
 }
 
-function HabitCard({ habit, onComplete, onSkip }: HabitCardProps) {
+function HabitMenuModal({ visible, habitName, onEdit, onArchive, onDelete, onClose }: HabitMenuModalProps) {
+  return (
+    <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
+      <TouchableOpacity style={styles.modalOverlay} onPress={onClose} activeOpacity={1}>
+        <View style={styles.menuCard}>
+          <Text style={styles.menuTitle}>{habitName}</Text>
+          <TouchableOpacity style={styles.menuItem} onPress={onEdit}>
+            <Text style={styles.menuItemText}>✏️  Edit</Text>
+          </TouchableOpacity>
+          <View style={styles.menuDivider} />
+          <TouchableOpacity style={styles.menuItem} onPress={onArchive}>
+            <Text style={styles.menuItemText}>📦  Archive</Text>
+          </TouchableOpacity>
+          <View style={styles.menuDivider} />
+          <TouchableOpacity style={styles.menuItem} onPress={onDelete}>
+            <Text style={[styles.menuItemText, styles.menuItemDestructive]}>🗑️  Delete</Text>
+          </TouchableOpacity>
+          <View style={styles.menuDivider} />
+          <TouchableOpacity style={styles.menuItem} onPress={onClose}>
+            <Text style={[styles.menuItemText, styles.menuItemCancel]}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
+
+interface HabitCardProps {
+  habit: HabitWithStreak;
+  index: number;
+  isLocked: boolean;
+  onComplete: (habit: HabitWithStreak) => void;
+  onSkip: (habit: HabitWithStreak) => void;
+  onMenu: (habit: HabitWithStreak) => void;
+  onLockedTap: () => void;
+}
+
+function HabitCard({ habit, index, isLocked, onComplete, onSkip, onMenu, onLockedTap }: HabitCardProps) {
   const status = habit.todayLog?.status;
   const isDone = status === 'done';
   const isSkipped = status === 'skipped';
   const isPending = !status || status === 'pending';
+
+  if (isLocked) {
+    return (
+      <TouchableOpacity
+        style={[styles.card, styles.cardLocked]}
+        onPress={onLockedTap}
+        activeOpacity={0.8}
+      >
+        <View style={styles.cardLeft}>
+          <Text style={[styles.cardIcon, { opacity: 0.4 }]}>{habit.icon}</Text>
+          <View style={styles.cardInfo}>
+            <Text style={[styles.cardName, { opacity: 0.4 }]}>{habit.name}</Text>
+            <Text style={styles.cardCategory}>{habit.category}</Text>
+          </View>
+        </View>
+        <View style={styles.lockBadge}>
+          <Text style={styles.lockBadgeText}>🔒</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <View style={[styles.card, isDone && styles.cardDone, isSkipped && styles.cardSkipped]}>
@@ -89,46 +154,57 @@ function HabitCard({ habit, onComplete, onSkip }: HabitCardProps) {
         </View>
       </View>
 
-      {isPending && (
-        <View style={styles.cardActions}>
-          <TouchableOpacity style={styles.skipBtn} onPress={() => onSkip(habit)}>
-            <Text style={styles.skipBtnText}>Skip</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.doneBtn} onPress={() => onComplete(habit)}>
-            <Text style={styles.doneBtnText}>Done ✓</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <View style={styles.cardRight}>
+        {isPending && (
+          <View style={styles.cardActions}>
+            <TouchableOpacity style={styles.skipBtn} onPress={() => onSkip(habit)}>
+              <Text style={styles.skipBtnText}>Skip</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.doneBtn} onPress={() => onComplete(habit)}>
+              <Text style={styles.doneBtnText}>Done ✓</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-      {isDone && (
-        <View style={styles.doneIndicator}>
-          <Text style={styles.doneIndicatorText}>✓</Text>
-        </View>
-      )}
+        {isDone && (
+          <View style={styles.doneIndicator}>
+            <Text style={styles.doneIndicatorText}>✓</Text>
+          </View>
+        )}
 
-      {isSkipped && (
-        <View style={styles.skippedIndicator}>
-          <Text style={styles.skippedIndicatorText}>–</Text>
-        </View>
-      )}
+        {isSkipped && (
+          <View style={styles.skippedIndicator}>
+            <Text style={styles.skippedIndicatorText}>–</Text>
+          </View>
+        )}
+
+        <TouchableOpacity style={styles.menuBtn} onPress={() => onMenu(habit)}>
+          <Text style={styles.menuBtnText}>⋯</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 export default function TodayScreen() {
-  const { state, isSignedIn, userId } = useAuth();
+  const { isSignedIn, userId } = useAuth();
+  const router = useRouter();
   const {
     loadHabits,
     loadTodayLogs,
     loadRecentLogs,
     loadProfile,
+    loadSubscription,
     completeHabit,
     skipHabit,
+    archiveHabit,
+    deleteHabit,
     habitsWithStreaks,
     completionRateToday,
     completionRateLast7Days,
     profile,
   } = useHabitStore();
+  const { isPremium, canAddHabit } = useSubscription();
   const analytics = useAnalytics();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -137,6 +213,12 @@ export default function TodayScreen() {
     message: '',
     habitName: '',
   });
+  const [menuModal, setMenuModal] = useState<{ visible: boolean; habit: HabitWithStreak | null }>({
+    visible: false,
+    habit: null,
+  });
+  const [paywallVisible, setPaywallVisible] = useState(false);
+  const [paywallReason, setPaywallReason] = useState<string | undefined>(undefined);
 
   const profileId = profile?.id;
 
@@ -149,8 +231,9 @@ export default function TodayScreen() {
       loadHabits(currentProfile.id),
       loadTodayLogs(currentProfile.id),
       loadRecentLogs(currentProfile.id),
+      loadSubscription(),
     ]);
-  }, [userId, loadProfile, loadHabits, loadTodayLogs, loadRecentLogs]);
+  }, [userId, loadProfile, loadHabits, loadTodayLogs, loadRecentLogs, loadSubscription]);
 
   useEffect(() => {
     if (isSignedIn) {
@@ -201,6 +284,73 @@ export default function TodayScreen() {
     analytics.logEvent(ev.name, ev.params);
   };
 
+  const handleAddHabit = () => {
+    const habits = habitsWithStreaks();
+    if (!canAddHabit(habits.length)) {
+      setPaywallReason("You've reached the 3-habit limit on the free plan. Upgrade to add unlimited habits.");
+      setPaywallVisible(true);
+      return;
+    }
+    router.push('/onboarding/habits');
+  };
+
+  const handleLockedTap = () => {
+    setPaywallReason("This habit is locked. Upgrade to Premium to unlock unlimited habits.");
+    setPaywallVisible(true);
+  };
+
+  const openMenu = (habit: HabitWithStreak) => {
+    setMenuModal({ visible: true, habit });
+  };
+
+  const closeMenu = () => {
+    setMenuModal({ visible: false, habit: null });
+  };
+
+  const handleMenuEdit = () => {
+    const habit = menuModal.habit;
+    closeMenu();
+    if (habit) {
+      router.push(`/edit-habit/${habit.id}`);
+    }
+  };
+
+  const handleMenuArchive = async () => {
+    const habit = menuModal.habit;
+    closeMenu();
+    if (!habit) return;
+    try {
+      await archiveHabit(habit.id);
+    } catch {
+      Alert.alert('Error', 'Could not archive habit. Please try again.');
+    }
+  };
+
+  const handleMenuDelete = () => {
+    const habit = menuModal.habit;
+    closeMenu();
+    if (!habit) return;
+
+    Alert.alert(
+      'Delete Habit',
+      `Are you sure you want to permanently delete "${habit.name}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteHabit(habit.id);
+            } catch {
+              Alert.alert('Error', 'Could not delete habit. Please try again.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const habits = habitsWithStreaks();
   const rate = completionRateToday();
   const doneCount = habits.filter((h) => h.todayLog?.status === 'done').length;
@@ -247,14 +397,30 @@ export default function TodayScreen() {
               </View>
             )}
 
-            <Text style={styles.sectionTitle}>
-              {totalCount === 0 ? 'Your Habits' : `${totalCount - doneCount} remaining`}
-            </Text>
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionTitle}>
+                {totalCount === 0 ? 'Your Habits' : `${totalCount - doneCount} remaining`}
+              </Text>
+              <TouchableOpacity style={styles.addHabitBtn} onPress={handleAddHabit}>
+                <Text style={styles.addHabitBtnText}>+ Add</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         }
-        renderItem={({ item }) => (
-          <HabitCard habit={item} onComplete={handleComplete} onSkip={handleSkip} />
-        )}
+        renderItem={({ item, index }) => {
+          const isLocked = !isPremium && index >= 3;
+          return (
+            <HabitCard
+              habit={item}
+              index={index}
+              isLocked={isLocked}
+              onComplete={handleComplete}
+              onSkip={handleSkip}
+              onMenu={openMenu}
+              onLockedTap={handleLockedTap}
+            />
+          );
+        }}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🌱</Text>
@@ -269,6 +435,21 @@ export default function TodayScreen() {
         message={aiModal.message}
         habitName={aiModal.habitName}
         onClose={() => setAiModal((s) => ({ ...s, visible: false }))}
+      />
+
+      <HabitMenuModal
+        visible={menuModal.visible}
+        habitName={menuModal.habit?.name ?? ''}
+        onEdit={handleMenuEdit}
+        onArchive={handleMenuArchive}
+        onDelete={handleMenuDelete}
+        onClose={closeMenu}
+      />
+
+      <PaywallModal
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+        reason={paywallReason}
       />
     </SafeAreaView>
   );
@@ -294,7 +475,15 @@ const styles = StyleSheet.create({
   progressBar: { height: 8, backgroundColor: '#EEF0FB', borderRadius: 4, marginBottom: 8 },
   progressFill: { height: 8, backgroundColor: '#6C63FF', borderRadius: 4 },
   progressPercent: { fontSize: 13, color: '#8B8FA8' },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1A1B2E', marginBottom: 12 },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1A1B2E' },
+  addHabitBtn: {
+    backgroundColor: '#6C63FF',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  addHabitBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -307,7 +496,9 @@ const styles = StyleSheet.create({
   },
   cardDone: { borderColor: '#D1FAE5', backgroundColor: '#F0FDF4' },
   cardSkipped: { borderColor: '#F1F5F9', backgroundColor: '#F8FAFC', opacity: 0.7 },
+  cardLocked: { borderColor: '#E8EAF2', backgroundColor: '#FAFBFF', opacity: 0.8 },
   cardLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  cardRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardIcon: { fontSize: 28, width: 40, textAlign: 'center' },
   cardInfo: { flex: 1 },
   cardName: { fontSize: 15, fontWeight: '600', color: '#1A1B2E', marginBottom: 4 },
@@ -355,6 +546,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   skippedIndicatorText: { fontSize: 20, color: '#9CA3AF', fontWeight: '700' },
+  menuBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#F4F3FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
+  },
+  menuBtnText: { fontSize: 16, color: '#6C63FF', fontWeight: '700' },
+  lockBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockBadgeText: { fontSize: 16 },
   emptyState: { alignItems: 'center', paddingVertical: 60, gap: 12 },
   emptyEmoji: { fontSize: 48 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: '#1A1B2E' },
@@ -386,4 +596,24 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   modalButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  menuCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 8,
+    width: '100%',
+    maxWidth: 320,
+  },
+  menuTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8B8FA8',
+    textAlign: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  menuItem: { paddingVertical: 14, paddingHorizontal: 20 },
+  menuItemText: { fontSize: 16, color: '#1A1B2E', fontWeight: '500' },
+  menuItemDestructive: { color: '#EF4444' },
+  menuItemCancel: { color: '#8B8FA8', textAlign: 'center' },
+  menuDivider: { height: 1, backgroundColor: '#F1F3FB', marginHorizontal: 8 },
 });

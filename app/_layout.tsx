@@ -11,6 +11,7 @@ import { useHabitStore } from '@/stores/habit-store';
 import { setupAndroidChannel } from '@/services/notifications';
 import {
   AnalyticsProvider,
+  AnalyticsUserProperty,
   CompositeTracker,
   FirebaseAnalyticsTracker,
   AppMetricaTracker,
@@ -33,6 +34,11 @@ const remoteConfig = new StubRemoteConfigProvider({
   reminders_enabled: 'true',
   weekly_insights_enabled: 'true',
   onboarding_variant: 'control',
+  // Sprint 2 A/B experiments.
+  // paywall_cta_variant: 'a' = "Начать 7 дней бесплатно" (control), 'b' = "Попробовать Premium"
+  paywall_cta_variant: 'a',
+  // paywall_price_display: 'monthly_first' (control) | 'annual_first'
+  paywall_price_display: 'monthly_first',
   active_experiment_ids: '',
 });
 
@@ -84,6 +90,26 @@ export default function RootLayout() {
         tracker.logEvent(ev.name, ev.params);
         setExperimentContext({ experimentName: 'onboarding_variant', variantName: onboardingVariant }).catch(() => {});
       }
+
+      // Sprint 2 A/B experiments — push variants to AppMetrica as user properties
+      // so all events can be segmented by active variant regardless of paywall exposure.
+      const paywallCtaVariant = remoteConfig.variantValue('paywall_cta_variant');
+      if (paywallCtaVariant) {
+        tracker.setUserProperty(AnalyticsUserProperty.PAYWALL_CTA_VARIANT, paywallCtaVariant);
+        if (paywallCtaVariant !== 'a') {
+          const ev = AnalyticsEvents.Experiment.experimentExposure('paywall_cta_variant', paywallCtaVariant);
+          tracker.logEvent(ev.name, ev.params);
+        }
+      }
+
+      const paywallPriceDisplay = remoteConfig.variantValue('paywall_price_display');
+      if (paywallPriceDisplay) {
+        tracker.setUserProperty(AnalyticsUserProperty.PAYWALL_PRICE_DISPLAY, paywallPriceDisplay);
+        if (paywallPriceDisplay !== 'monthly_first') {
+          const ev = AnalyticsEvents.Experiment.experimentExposure('paywall_price_display', paywallPriceDisplay);
+          tracker.logEvent(ev.name, ev.params);
+        }
+      }
     }).catch(() => {});
   }, []);
 
@@ -96,6 +122,11 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          <Stack.Screen name="paywall" options={{ presentation: 'modal', headerShown: false }} />
+          <Stack.Screen name="settings" options={{ title: 'Settings', headerBackTitle: 'Back' }} />
+          <Stack.Screen name="settings/notifications" options={{ title: 'Notifications' }} />
+          <Stack.Screen name="settings/account" options={{ title: 'Account' }} />
+          <Stack.Screen name="habit-edit" options={{ presentation: 'modal', title: 'Edit Habit' }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>

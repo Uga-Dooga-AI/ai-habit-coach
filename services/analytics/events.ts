@@ -61,6 +61,10 @@ export const AnalyticsEvents = {
 
     habitReactivated: (habitId: string, category: string, daysInactive: number): AnalyticsEvent =>
       event('habit_reactivated', { habit_id: habitId, category, days_inactive: daysInactive }),
+
+    // Fired when a free-tier user tries to add a habit beyond the 3-habit limit.
+    habitLimitHit: (): AnalyticsEvent =>
+      event('habit_limit_hit'),
   },
 
   Streaks: {
@@ -150,14 +154,27 @@ export const AnalyticsEvents = {
     paywallShown: (source: string, triggerFeature: string): AnalyticsEvent =>
       event('paywall_shown', { source, trigger_feature: triggerFeature }),
 
+    // plan: 'monthly' | 'annual' | 'trial'
+    paywallCtaTapped: (plan: string, ctaVariant: string): AnalyticsEvent =>
+      event('paywall_cta_tapped', { plan, cta_variant: ctaVariant }),
+
     paywallDismissed: (source: string, viewDurationSec: number): AnalyticsEvent =>
       event('paywall_dismissed', { source, view_duration_sec: viewDurationSec }),
 
     trialActivated: (planId: string, trialDurationDays: number, source: string): AnalyticsEvent =>
       event('trial_activated', { plan_id: planId, trial_duration_days: trialDurationDays, source }),
 
+    trialConverted: (planId: string, trialDurationDays: number): AnalyticsEvent =>
+      event('trial_converted', { plan_id: planId, trial_duration_days: trialDurationDays }),
+
+    trialExpired: (planId: string, trialDurationDays: number): AnalyticsEvent =>
+      event('trial_expired', { plan_id: planId, trial_duration_days: trialDurationDays }),
+
     subscriptionStarted: (planId: string, price: number, currency: string, period: string, source: string, isTrialConversion: boolean): AnalyticsEvent =>
       event('subscription_started', { plan_id: planId, price, currency, period, source, is_trial_conversion: isTrialConversion }),
+
+    subscriptionRestored: (planId: string): AnalyticsEvent =>
+      event('subscription_restored', { plan_id: planId }),
 
     subscriptionRenewed: (planId: string, price: number, currency: string, period: string, renewalCount: number): AnalyticsEvent =>
       event('subscription_renewed', { plan_id: planId, price, currency, period, renewal_count: renewalCount }),
@@ -232,6 +249,23 @@ export const AnalyticsEvents = {
 
     fatalUserFlowError: (flowName: string, errorCode: string): AnalyticsEvent =>
       event('fatal_user_flow_error', { flow_name: flowName, error_code: errorCode }),
+  },
+
+  Settings: {
+    settingsOpened: (): AnalyticsEvent =>
+      event('settings_opened'),
+
+    quietHoursConfigured: (startHour: number, endHour: number): AnalyticsEvent =>
+      event('quiet_hours_configured', { start_hour: startHour, end_hour: endHour }),
+
+    notificationToggled: (habitId: string, enabled: boolean): AnalyticsEvent =>
+      event('notification_toggled', { habit_id: habitId, enabled }),
+
+    accountDeleted: (reason: string): AnalyticsEvent =>
+      event('account_deleted', { reason }),
+
+    logoutTapped: (): AnalyticsEvent =>
+      event('logout_tapped'),
   },
 
   Experiment: {
