@@ -6,7 +6,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuthInit, useAuth } from '@/hooks/use-auth';
-import { initObservability, recordNonFatal, setExperimentContext } from '@/lib/observability';
+import { initObservability, recordNonFatal, setExperimentContext, setObservabilityUserId, logBreadcrumb } from '@/lib/observability';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { useHabitStore } from '@/stores/habit-store';
 import { setupAndroidChannel } from '@/services/notifications';
@@ -57,12 +57,23 @@ function OnboardingGuard() {
   const { isSignedIn, initialized, userId } = useAuth();
   const { loadProfile } = useHabitStore();
 
+  // Set Crashlytics user ID on auth state changes
+  useEffect(() => {
+    setObservabilityUserId(userId ?? null).catch(() => {});
+    if (userId) {
+      logBreadcrumb(`auth:signed_in uid=${userId}`);
+    } else if (initialized) {
+      logBreadcrumb('auth:signed_out');
+    }
+  }, [initialized, userId]);
+
   useEffect(() => {
     if (!initialized || !isSignedIn || !userId) return;
 
     loadProfile(userId).then(() => {
       const currentProfile = useHabitStore.getState().profile;
       if (currentProfile && !currentProfile.onboardingCompleted) {
+        logBreadcrumb('nav:redirect_to_onboarding');
         router.replace('/onboarding');
       }
     });

@@ -22,6 +22,7 @@ import {
   cancelHabitReminder,
   requestNotificationPermission,
 } from '@/services/notifications';
+import { recordNonFatal, logBreadcrumb } from '@/lib/observability';
 import type { Habit, HabitLog, HabitWithStreak, Profile, WeeklyInsight, HabitCategory, HabitFrequency, SubscriptionTier } from '@/services/types';
 
 const CACHE_PREFIX = 'habit_logs_';
@@ -115,6 +116,7 @@ export const useHabitStore = create<HabitState & HabitActions>((set, get) => ({
     } catch (e) {
       // Use cached profile if available, don't throw
       console.warn('loadProfile error:', e);
+      recordNonFatal('load_profile', e);
     }
   },
 
@@ -125,6 +127,7 @@ export const useHabitStore = create<HabitState & HabitActions>((set, get) => ({
       set({ habits, loading: false });
     } catch (e) {
       set({ loading: false, error: String(e) });
+      recordNonFatal('load_habits', e);
     }
   },
 
@@ -148,6 +151,7 @@ export const useHabitStore = create<HabitState & HabitActions>((set, get) => ({
       await AsyncStorage.setItem(`${CACHE_PREFIX}${today}`, JSON.stringify(logs));
     } catch (e) {
       console.warn('loadTodayLogs error:', e);
+      recordNonFatal('load_today_logs', e);
     }
   },
 
@@ -159,6 +163,7 @@ export const useHabitStore = create<HabitState & HabitActions>((set, get) => ({
       set({ recentLogs: logs });
     } catch (e) {
       console.warn('loadRecentLogs error:', e);
+      recordNonFatal('load_recent_logs', e);
     }
   },
 
@@ -168,6 +173,7 @@ export const useHabitStore = create<HabitState & HabitActions>((set, get) => ({
       set({ latestInsight: insight });
     } catch (e) {
       console.warn('loadLatestInsight error:', e);
+      recordNonFatal('load_latest_insight', e);
     }
   },
 
@@ -177,6 +183,7 @@ export const useHabitStore = create<HabitState & HabitActions>((set, get) => ({
       set({ subscriptionTier: status.tier });
     } catch (e) {
       console.warn('loadSubscription error:', e);
+      recordNonFatal('load_subscription', e);
     }
   },
 
@@ -186,6 +193,7 @@ export const useHabitStore = create<HabitState & HabitActions>((set, get) => ({
       set({ archivedHabits });
     } catch (e) {
       console.warn('loadArchivedHabits error:', e);
+      recordNonFatal('load_archived_habits', e);
     }
   },
 
@@ -193,6 +201,7 @@ export const useHabitStore = create<HabitState & HabitActions>((set, get) => ({
     const { habits, recentLogs, today } = get();
     const habit = habits.find((h) => h.id === habitId);
     if (!habit) return 'Well done!';
+    logBreadcrumb(`action:complete_habit name=${habit.name}`);
 
     const { current: streak } = calculateStreak(recentLogs, habitId);
 
@@ -324,6 +333,7 @@ export const useHabitStore = create<HabitState & HabitActions>((set, get) => ({
   },
 
   deleteHabit: async (habitId) => {
+    logBreadcrumb(`action:delete_habit id=${habitId}`);
     await cancelHabitReminder(habitId);
     await deleteHabitService(habitId);
     set((state) => ({
@@ -362,6 +372,7 @@ export const useHabitStore = create<HabitState & HabitActions>((set, get) => ({
   generateInsights: async (userId) => {
     const { habits, recentLogs } = get();
     if (habits.length === 0) return;
+    logBreadcrumb(`action:generate_insights habits=${habits.length}`);
 
     const today = new Date();
     const weekEnd = today.toISOString().split('T')[0];

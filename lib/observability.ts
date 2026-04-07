@@ -18,7 +18,10 @@ function getCrashlyticsModule(): {
   default(): {
     setCrashlyticsCollectionEnabled(enabled: boolean): Promise<void>;
     setAttributes(attrs: Record<string, string>): Promise<void>;
+    setAttribute(key: string, value: string): Promise<void>;
+    setUserId(userId: string): Promise<void>;
     recordError(error: Error, reason?: string): void;
+    log(message: string): void;
   };
 } | null {
   if (process.env.EXPO_PUBLIC_FIREBASE_ENABLED === 'false') return null;
@@ -88,6 +91,40 @@ export async function setExperimentContext(
       active_experiment: ctx.experimentName,
       active_variant: ctx.variantName,
     });
+  } catch {
+    // Firebase native module not configured
+  }
+}
+
+/**
+ * Associates the current Firebase user with Crashlytics reports.
+ * Call on auth state changes so crash reports correlate to users.
+ */
+export async function setObservabilityUserId(userId: string | null): Promise<void> {
+  const mod = getCrashlyticsModule();
+  if (!mod) return;
+
+  try {
+    if (userId) {
+      await mod.default().setUserId(userId);
+    } else {
+      await mod.default().setUserId('');
+    }
+  } catch {
+    // Firebase native module not configured
+  }
+}
+
+/**
+ * Logs a breadcrumb message for crash context.
+ * These appear in the Crashlytics log trail when a crash occurs.
+ */
+export function logBreadcrumb(message: string): void {
+  const mod = getCrashlyticsModule();
+  if (!mod) return;
+
+  try {
+    mod.default().log(message);
   } catch {
     // Firebase native module not configured
   }
