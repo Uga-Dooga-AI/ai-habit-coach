@@ -307,6 +307,16 @@ export default function TodayScreen() {
     );
     analytics.logEvent(ev.name, ev.params);
 
+    // Streak events
+    const streakEv = AnalyticsEvents.Streaks.streakIncremented(nextStreak, 1);
+    analytics.logEvent(streakEv.name, streakEv.params);
+
+    if (nextStreak > 0 && nextStreak % 7 === 0) {
+      const milestoneType = nextStreak >= 30 ? '30_day' : nextStreak >= 21 ? '21_day' : nextStreak >= 14 ? '14_day' : '7_day';
+      const milestoneEv = AnalyticsEvents.Streaks.streakMilestone(nextStreak, milestoneType);
+      analytics.logEvent(milestoneEv.name, milestoneEv.params);
+    }
+
     const aiEv = AnalyticsEvents.AI.aiCoachingMessageShown('check_in_success', habit.category);
     analytics.logEvent(aiEv.name, aiEv.params);
 

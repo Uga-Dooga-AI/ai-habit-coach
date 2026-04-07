@@ -26,3 +26,4 @@ export {
 
 export { AnalyticsProvider, useAnalytics } from './analytics-provider';
 export { useScreenTracking } from './use-screen-tracking';
+export { useUserPropertySync } from './use-user-property-sync';

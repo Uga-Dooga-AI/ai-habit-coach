@@ -19,6 +19,7 @@ import {
   StubRemoteConfigProvider,
   AnalyticsEvents,
   useScreenTracking,
+  useUserPropertySync,
 } from '@/services/analytics';
 
 export const unstable_settings = {
@@ -50,6 +51,7 @@ const tracker = new CompositeTracker([
 
 function ScreenTracker() {
   useScreenTracking();
+  useUserPropertySync();
   return null;
 }
 
@@ -97,10 +99,13 @@ export default function RootLayout() {
     // and this will fetch real experiment assignments.
     remoteConfig.fetchAndActivate().then(() => {
       const onboardingVariant = remoteConfig.variantValue('onboarding_variant');
-      if (onboardingVariant && onboardingVariant !== 'control') {
-        const ev = AnalyticsEvents.Experiment.experimentExposure('onboarding_variant', onboardingVariant);
-        tracker.logEvent(ev.name, ev.params);
-        setExperimentContext({ experimentName: 'onboarding_variant', variantName: onboardingVariant }).catch(() => {});
+      if (onboardingVariant) {
+        tracker.setUserProperty(AnalyticsUserProperty.ONBOARDING_VARIANT, onboardingVariant);
+        if (onboardingVariant !== 'control') {
+          const ev = AnalyticsEvents.Experiment.experimentExposure('onboarding_variant', onboardingVariant);
+          tracker.logEvent(ev.name, ev.params);
+          setExperimentContext({ experimentName: 'onboarding_variant', variantName: onboardingVariant }).catch(() => {});
+        }
       }
 
       // Sprint 2 A/B experiments — push variants to AppMetrica as user properties

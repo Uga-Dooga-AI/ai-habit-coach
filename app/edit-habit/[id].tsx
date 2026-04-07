@@ -92,6 +92,10 @@ export default function EditHabitScreen() {
         const ev = AnalyticsEvents.Habits.habitEdited(habit.id, changedFields.join(','));
         analytics.logEvent(ev.name, ev.params);
       }
+      if (notificationsEnabled !== habit.notificationsEnabled) {
+        const toggleEv = AnalyticsEvents.Settings.notificationToggled(habit.id, notificationsEnabled);
+        analytics.logEvent(toggleEv.name, toggleEv.params);
+      }
       router.back();
     } catch {
       Alert.alert('Error', 'Could not save changes. Please try again.');
