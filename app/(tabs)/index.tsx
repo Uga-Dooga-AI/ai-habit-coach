@@ -287,6 +287,10 @@ export default function TodayScreen() {
   const handleAddHabit = () => {
     const habits = habitsWithStreaks();
     if (!canAddHabit(habits.length)) {
+      const limitEv = AnalyticsEvents.Habits.habitLimitHit();
+      analytics.logEvent(limitEv.name, limitEv.params);
+      const shownEv = AnalyticsEvents.Paywall.paywallShown('add_habit_limit', 'add_habit_limit');
+      analytics.logEvent(shownEv.name, shownEv.params);
       setPaywallReason("You've reached the 3-habit limit on the free plan. Upgrade to add unlimited habits.");
       setPaywallVisible(true);
       return;
@@ -295,8 +299,16 @@ export default function TodayScreen() {
   };
 
   const handleLockedTap = () => {
+    const shownEv = AnalyticsEvents.Paywall.paywallShown('locked_habit', 'ai_insights_gate');
+    analytics.logEvent(shownEv.name, shownEv.params);
     setPaywallReason("This habit is locked. Upgrade to Premium to unlock unlimited habits.");
     setPaywallVisible(true);
+  };
+
+  const handlePaywallClose = () => {
+    const dismissEv = AnalyticsEvents.Paywall.paywallDismissed('inline_modal', 0);
+    analytics.logEvent(dismissEv.name, dismissEv.params);
+    setPaywallVisible(false);
   };
 
   const openMenu = (habit: HabitWithStreak) => {
@@ -321,6 +333,8 @@ export default function TodayScreen() {
     if (!habit) return;
     try {
       await archiveHabit(habit.id);
+      const ev = AnalyticsEvents.Habits.habitArchived(habit.id, habit.category, 0, 0);
+      analytics.logEvent(ev.name, ev.params);
     } catch {
       Alert.alert('Error', 'Could not archive habit. Please try again.');
     }
@@ -342,6 +356,8 @@ export default function TodayScreen() {
           onPress: async () => {
             try {
               await deleteHabit(habit.id);
+              const ev = AnalyticsEvents.Habits.habitDeleted(habit.id, habit.category, 0, 0);
+              analytics.logEvent(ev.name, ev.params);
             } catch {
               Alert.alert('Error', 'Could not delete habit. Please try again.');
             }
@@ -448,7 +464,7 @@ export default function TodayScreen() {
 
       <PaywallModal
         visible={paywallVisible}
-        onClose={() => setPaywallVisible(false)}
+        onClose={handlePaywallClose}
         reason={paywallReason}
       />
     </SafeAreaView>

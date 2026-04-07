@@ -54,7 +54,7 @@ function ScreenTracker() {
 
 function OnboardingGuard() {
   const { isSignedIn, initialized, userId } = useAuth();
-  const { loadProfile, profile } = useHabitStore();
+  const { loadProfile } = useHabitStore();
 
   useEffect(() => {
     if (!initialized || !isSignedIn || !userId) return;
@@ -123,10 +123,7 @@ export default function RootLayout() {
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           <Stack.Screen name="paywall" options={{ presentation: 'modal', headerShown: false }} />
-          <Stack.Screen name="settings" options={{ title: 'Settings', headerBackTitle: 'Back' }} />
-          <Stack.Screen name="settings/notifications" options={{ title: 'Notifications' }} />
-          <Stack.Screen name="settings/account" options={{ title: 'Account' }} />
-          <Stack.Screen name="habit-edit" options={{ presentation: 'modal', title: 'Edit Habit' }} />
+          <Stack.Screen name="edit-habit/[id]" options={{ presentation: 'modal', title: 'Edit Habit' }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
