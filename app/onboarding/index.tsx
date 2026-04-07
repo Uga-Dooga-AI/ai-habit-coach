@@ -37,9 +37,9 @@ export default function OnboardingGoalScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.step}>Step 1 of 3</Text>
-          <Text style={styles.title}>What's your main goal?</Text>
+          <Text style={styles.title}>What&apos;s your main goal?</Text>
           <Text style={styles.subtitle}>
-            We'll personalize your habit suggestions based on what matters most to you.
+            We&apos;ll personalize your habit suggestions based on what matters most to you.
           </Text>
         </View>
 

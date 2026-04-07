@@ -233,7 +233,7 @@ export default function TodayScreen() {
             {totalCount > 0 && (
               <View style={styles.progressCard}>
                 <View style={styles.progressRow}>
-                  <Text style={styles.progressLabel}>Today's Progress</Text>
+                  <Text style={styles.progressLabel}>Today&apos;s Progress</Text>
                   <Text style={styles.progressCount}>{doneCount}/{totalCount}</Text>
                 </View>
                 <View style={styles.progressBar}>
