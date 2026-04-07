@@ -12,11 +12,13 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/hooks/use-auth';
 import { useHabitStore } from '@/stores/habit-store';
 import { useSubscription } from '@/hooks/use-subscription';
 import { useAnalytics, AnalyticsEvents } from '@/services/analytics';
 import { PaywallModal } from '@/components/paywall-modal';
+import { HabitListSkeleton } from '@/components/loading-skeleton';
 import type { HabitWithStreak } from '@/services/types';
 
 function getDayGreeting(): string {
@@ -50,12 +52,12 @@ interface AIMessageModalProps {
 function AIMessageModal({ visible, message, habitName, onClose }: AIMessageModalProps) {
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
-      <TouchableOpacity style={styles.modalOverlay} onPress={onClose} activeOpacity={1}>
-        <View style={styles.modalCard}>
-          <Text style={styles.modalEmoji}>🎉</Text>
+      <TouchableOpacity style={styles.modalOverlay} onPress={onClose} activeOpacity={1} accessibilityLabel="Close dialog">
+        <View style={styles.modalCard} accessibilityRole="alert" accessibilityLabel={`${habitName}: ${message}`}>
+          <Text style={styles.modalEmoji} accessibilityElementsHidden>🎉</Text>
           <Text style={styles.modalHabit}>{habitName}</Text>
           <Text style={styles.modalMessage}>{message}</Text>
-          <TouchableOpacity style={styles.modalButton} onPress={onClose}>
+          <TouchableOpacity style={styles.modalButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Keep going, dismiss">
             <Text style={styles.modalButtonText}>Keep Going!</Text>
           </TouchableOpacity>
         </View>
@@ -76,22 +78,22 @@ interface HabitMenuModalProps {
 function HabitMenuModal({ visible, habitName, onEdit, onArchive, onDelete, onClose }: HabitMenuModalProps) {
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
-      <TouchableOpacity style={styles.modalOverlay} onPress={onClose} activeOpacity={1}>
-        <View style={styles.menuCard}>
+      <TouchableOpacity style={styles.modalOverlay} onPress={onClose} activeOpacity={1} accessibilityLabel="Close menu">
+        <View style={styles.menuCard} accessibilityRole="menu" accessibilityLabel={`Options for ${habitName}`}>
           <Text style={styles.menuTitle}>{habitName}</Text>
-          <TouchableOpacity style={styles.menuItem} onPress={onEdit}>
+          <TouchableOpacity style={styles.menuItem} onPress={onEdit} accessibilityRole="menuitem" accessibilityLabel="Edit habit">
             <Text style={styles.menuItemText}>✏️  Edit</Text>
           </TouchableOpacity>
           <View style={styles.menuDivider} />
-          <TouchableOpacity style={styles.menuItem} onPress={onArchive}>
+          <TouchableOpacity style={styles.menuItem} onPress={onArchive} accessibilityRole="menuitem" accessibilityLabel="Archive habit">
             <Text style={styles.menuItemText}>📦  Archive</Text>
           </TouchableOpacity>
           <View style={styles.menuDivider} />
-          <TouchableOpacity style={styles.menuItem} onPress={onDelete}>
+          <TouchableOpacity style={styles.menuItem} onPress={onDelete} accessibilityRole="menuitem" accessibilityLabel="Delete habit">
             <Text style={[styles.menuItemText, styles.menuItemDestructive]}>🗑️  Delete</Text>
           </TouchableOpacity>
           <View style={styles.menuDivider} />
-          <TouchableOpacity style={styles.menuItem} onPress={onClose}>
+          <TouchableOpacity style={styles.menuItem} onPress={onClose} accessibilityRole="menuitem" accessibilityLabel="Cancel">
             <Text style={[styles.menuItemText, styles.menuItemCancel]}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -116,15 +118,20 @@ function HabitCard({ habit, index, isLocked, onComplete, onSkip, onMenu, onLocke
   const isSkipped = status === 'skipped';
   const isPending = !status || status === 'pending';
 
+  const statusLabel = isDone ? 'completed' : isSkipped ? 'skipped' : 'pending';
+  const streakLabel = habit.currentStreak > 0 ? `, ${habit.currentStreak} day streak` : '';
+
   if (isLocked) {
     return (
       <TouchableOpacity
         style={[styles.card, styles.cardLocked]}
         onPress={onLockedTap}
         activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel={`${habit.name}, locked. Tap to unlock with Premium`}
       >
         <View style={styles.cardLeft}>
-          <Text style={[styles.cardIcon, { opacity: 0.4 }]}>{habit.icon}</Text>
+          <Text style={[styles.cardIcon, { opacity: 0.4 }]} accessibilityElementsHidden>{habit.icon}</Text>
           <View style={styles.cardInfo}>
             <Text style={[styles.cardName, { opacity: 0.4 }]}>{habit.name}</Text>
             <Text style={styles.cardCategory}>{habit.category}</Text>
@@ -138,14 +145,17 @@ function HabitCard({ habit, index, isLocked, onComplete, onSkip, onMenu, onLocke
   }
 
   return (
-    <View style={[styles.card, isDone && styles.cardDone, isSkipped && styles.cardSkipped]}>
+    <View
+      style={[styles.card, isDone && styles.cardDone, isSkipped && styles.cardSkipped]}
+      accessibilityLabel={`${habit.name}, ${habit.category}, ${statusLabel}${streakLabel}`}
+    >
       <View style={styles.cardLeft}>
-        <Text style={styles.cardIcon}>{habit.icon}</Text>
+        <Text style={styles.cardIcon} accessibilityElementsHidden>{habit.icon}</Text>
         <View style={styles.cardInfo}>
           <Text style={[styles.cardName, isDone && styles.cardNameDone]}>{habit.name}</Text>
           <View style={styles.cardMeta}>
             {habit.currentStreak > 0 && (
-              <View style={styles.streakBadge}>
+              <View style={styles.streakBadge} accessibilityLabel={`${habit.currentStreak} day streak`}>
                 <Text style={styles.streakBadgeText}>🔥 {habit.currentStreak}</Text>
               </View>
             )}
@@ -157,28 +167,43 @@ function HabitCard({ habit, index, isLocked, onComplete, onSkip, onMenu, onLocke
       <View style={styles.cardRight}>
         {isPending && (
           <View style={styles.cardActions}>
-            <TouchableOpacity style={styles.skipBtn} onPress={() => onSkip(habit)}>
+            <TouchableOpacity
+              style={styles.skipBtn}
+              onPress={() => onSkip(habit)}
+              accessibilityRole="button"
+              accessibilityLabel={`Skip ${habit.name}`}
+            >
               <Text style={styles.skipBtnText}>Skip</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.doneBtn} onPress={() => onComplete(habit)}>
+            <TouchableOpacity
+              style={styles.doneBtn}
+              onPress={() => onComplete(habit)}
+              accessibilityRole="button"
+              accessibilityLabel={`Complete ${habit.name}`}
+            >
               <Text style={styles.doneBtnText}>Done ✓</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {isDone && (
-          <View style={styles.doneIndicator}>
+          <View style={styles.doneIndicator} accessibilityLabel="Completed">
             <Text style={styles.doneIndicatorText}>✓</Text>
           </View>
         )}
 
         {isSkipped && (
-          <View style={styles.skippedIndicator}>
+          <View style={styles.skippedIndicator} accessibilityLabel="Skipped">
             <Text style={styles.skippedIndicatorText}>–</Text>
           </View>
         )}
 
-        <TouchableOpacity style={styles.menuBtn} onPress={() => onMenu(habit)}>
+        <TouchableOpacity
+          style={styles.menuBtn}
+          onPress={() => onMenu(habit)}
+          accessibilityRole="button"
+          accessibilityLabel={`More options for ${habit.name}`}
+        >
           <Text style={styles.menuBtnText}>⋯</Text>
         </TouchableOpacity>
       </View>
@@ -207,6 +232,7 @@ export default function TodayScreen() {
   const { isPremium, canAddHabit } = useSubscription();
   const analytics = useAnalytics();
 
+  const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [aiModal, setAiModal] = useState<{ visible: boolean; message: string; habitName: string }>({
     visible: false,
@@ -237,7 +263,9 @@ export default function TodayScreen() {
 
   useEffect(() => {
     if (isSignedIn) {
-      loadData();
+      loadData().finally(() => setInitialLoading(false));
+    } else {
+      setInitialLoading(false);
     }
   }, [isSignedIn, loadData]);
 
@@ -259,6 +287,15 @@ export default function TodayScreen() {
 
   const handleComplete = async (habit: HabitWithStreak) => {
     if (!profileId) return;
+
+    // Haptic: heavy impact for streak milestones (7, 14, 21, 30…), medium otherwise
+    const nextStreak = habit.currentStreak + 1;
+    if (nextStreak > 0 && nextStreak % 7 === 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
     const message = await completeHabit(habit.id, profileId);
 
     const ev = AnalyticsEvents.Habits.habitCompleted(
@@ -278,6 +315,7 @@ export default function TodayScreen() {
 
   const handleSkip = async (habit: HabitWithStreak) => {
     if (!profileId) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await skipHabit(habit.id, profileId);
 
     const ev = AnalyticsEvents.Habits.habitSkipped(habit.id, habit.category, 'user_skip', habit.currentStreak);
@@ -417,7 +455,12 @@ export default function TodayScreen() {
               <Text style={styles.sectionTitle}>
                 {totalCount === 0 ? 'Your Habits' : `${totalCount - doneCount} remaining`}
               </Text>
-              <TouchableOpacity style={styles.addHabitBtn} onPress={handleAddHabit}>
+              <TouchableOpacity
+                style={styles.addHabitBtn}
+                onPress={handleAddHabit}
+                accessibilityRole="button"
+                accessibilityLabel="Add new habit"
+              >
                 <Text style={styles.addHabitBtnText}>+ Add</Text>
               </TouchableOpacity>
             </View>
@@ -438,11 +481,15 @@ export default function TodayScreen() {
           );
         }}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>🌱</Text>
-            <Text style={styles.emptyTitle}>No habits yet</Text>
-            <Text style={styles.emptySubtitle}>Complete onboarding to set up your first habits</Text>
-          </View>
+          initialLoading ? (
+            <HabitListSkeleton count={3} />
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyEmoji}>🌱</Text>
+              <Text style={styles.emptyTitle}>No habits yet</Text>
+              <Text style={styles.emptySubtitle}>Complete onboarding to set up your first habits</Text>
+            </View>
+          )
         }
       />
 

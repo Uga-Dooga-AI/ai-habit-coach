@@ -138,12 +138,15 @@ export default function InsightsScreen() {
           style={[styles.generateButton, generating && styles.generateButtonLoading]}
           onPress={handleGenerate}
           disabled={generating || habits.length === 0}
+          accessibilityRole="button"
+          accessibilityLabel={generating ? 'Generating insights' : (latestInsight ? 'Regenerate insights' : "Generate this week's insights")}
+          accessibilityState={{ disabled: generating || habits.length === 0, busy: generating }}
         >
           {generating ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <>
-              <Text style={styles.generateIcon}>✨</Text>
+              <Text style={styles.generateIcon} accessibilityElementsHidden>✨</Text>
               <Text style={styles.generateText}>
                 {latestInsight ? 'Regenerate Insights' : 'Generate This Week\'s Insights'}
               </Text>

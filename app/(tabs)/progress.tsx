@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useHabitStore } from '@/stores/habit-store';
 import { calculateStreak } from '@/services/habits';
 import { useAnalytics, AnalyticsEvents } from '@/services/analytics';
+import { ProgressSkeleton } from '@/components/loading-skeleton';
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -39,9 +40,9 @@ function HeatmapCalendar() {
   }
 
   return (
-    <View style={heatStyles.container}>
+    <View style={heatStyles.container} accessibilityLabel="Activity heatmap for the last 6 weeks">
       <Text style={heatStyles.title}>Activity (Last 6 Weeks)</Text>
-      <View style={heatStyles.grid}>
+      <View style={heatStyles.grid} accessibilityElementsHidden>
         {days.map((day) => (
           <View
             key={day.date}
@@ -79,8 +80,8 @@ interface StreakCardProps {
 
 function StatCard({ label, value, icon, color }: StreakCardProps) {
   return (
-    <View style={[statStyles.card, { borderColor: color + '40' }]}>
-      <Text style={statStyles.icon}>{icon}</Text>
+    <View style={[statStyles.card, { borderColor: color + '40' }]} accessibilityLabel={`${label}: ${value}`}>
+      <Text style={statStyles.icon} accessibilityElementsHidden>{icon}</Text>
       <Text style={[statStyles.value, { color }]}>{value}</Text>
       <Text style={statStyles.label}>{label}</Text>
     </View>
@@ -115,6 +116,7 @@ export default function ProgressScreen() {
     completionRateLast7Days,
   } = useHabitStore();
   const analytics = useAnalytics();
+  const [initialLoading, setInitialLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     if (!userId) return;
@@ -128,7 +130,11 @@ export default function ProgressScreen() {
   }, [userId, loadProfile, loadHabits, loadRecentLogs]);
 
   useEffect(() => {
-    if (isSignedIn) loadData();
+    if (isSignedIn) {
+      loadData().finally(() => setInitialLoading(false));
+    } else {
+      setInitialLoading(false);
+    }
   }, [isSignedIn, loadData]);
 
   // Fire progress_view_opened on mount when signed in
@@ -169,49 +175,64 @@ export default function ProgressScreen() {
       >
         <Text style={styles.title}>Progress</Text>
 
-        <View style={styles.statsRow}>
-          <StatCard label="Current Streak" value={overallCurrent} icon="🔥" color="#EA580C" />
-          <StatCard label="Best Streak" value={overallBest} icon="🏆" color="#D97706" />
-          <StatCard label="Total Done" value={totalCompleted} icon="✅" color="#059669" />
-        </View>
-
-        <View style={styles.rateCard}>
-          <Text style={styles.rateLabel}>7-Day Completion Rate</Text>
-          <Text style={styles.rateValue}>{Math.round(rate7d * 100)}%</Text>
-          <View style={styles.rateBar}>
-            <View style={[styles.rateFill, { width: `${Math.round(rate7d * 100)}%` }]} />
+        {initialLoading ? (
+          <ProgressSkeleton />
+        ) : habitsWS.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>📊</Text>
+            <Text style={styles.emptyTitle}>No progress data yet</Text>
+            <Text style={styles.emptySubtitle}>Add habits and start tracking to see your progress here</Text>
           </View>
-        </View>
+        ) : (
+          <>
+            <View style={styles.statsRow}>
+              <StatCard label="Current Streak" value={overallCurrent} icon="🔥" color="#EA580C" />
+              <StatCard label="Best Streak" value={overallBest} icon="🏆" color="#D97706" />
+              <StatCard label="Total Done" value={totalCompleted} icon="✅" color="#059669" />
+            </View>
 
-        <HeatmapCalendar />
-
-        {habitsWS.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Per-Habit Streaks</Text>
-            {habitsWS.map((h) => (
-              <View key={h.id} style={styles.habitRow}>
-                <Text style={styles.habitIcon}>{h.icon}</Text>
-                <View style={styles.habitInfo}>
-                  <Text style={styles.habitName}>{h.name}</Text>
-                  <View style={styles.habitStreak}>
-                    <Text style={styles.habitStreakText}>
-                      🔥 {h.currentStreak} day streak
-                    </Text>
-                    <Text style={styles.habitBestText}>Best: {h.bestStreak}</Text>
-                  </View>
-                </View>
-                <View style={styles.habitRate}>
-                  <Text style={styles.habitRateText}>
-                    {Math.round(
-                      (recentLogs.filter((l) => l.habitId === h.id && l.status === 'done').length /
-                        Math.max(1, 7)) * 100,
-                    )}%
-                  </Text>
-                  <Text style={styles.habitRateLabel}>7-day</Text>
-                </View>
+            <View style={styles.rateCard} accessibilityLabel={`7-Day Completion Rate: ${Math.round(rate7d * 100)}%`}>
+              <Text style={styles.rateLabel}>7-Day Completion Rate</Text>
+              <Text style={styles.rateValue}>{Math.round(rate7d * 100)}%</Text>
+              <View style={styles.rateBar} accessibilityElementsHidden>
+                <View style={[styles.rateFill, { width: `${Math.round(rate7d * 100)}%` }]} />
               </View>
-            ))}
-          </View>
+            </View>
+
+            <HeatmapCalendar />
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Per-Habit Streaks</Text>
+              {habitsWS.map((h) => {
+                const rate7dHabit = Math.round(
+                  (recentLogs.filter((l) => l.habitId === h.id && l.status === 'done').length /
+                    Math.max(1, 7)) * 100,
+                );
+                return (
+                  <View
+                    key={h.id}
+                    style={styles.habitRow}
+                    accessibilityLabel={`${h.name}: ${h.currentStreak} day streak, best ${h.bestStreak}, ${rate7dHabit}% 7-day rate`}
+                  >
+                    <Text style={styles.habitIcon} accessibilityElementsHidden>{h.icon}</Text>
+                    <View style={styles.habitInfo}>
+                      <Text style={styles.habitName}>{h.name}</Text>
+                      <View style={styles.habitStreak}>
+                        <Text style={styles.habitStreakText}>
+                          🔥 {h.currentStreak} day streak
+                        </Text>
+                        <Text style={styles.habitBestText}>Best: {h.bestStreak}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.habitRate}>
+                      <Text style={styles.habitRateText}>{rate7dHabit}%</Text>
+                      <Text style={styles.habitRateLabel}>7-day</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -247,7 +268,8 @@ const styles = StyleSheet.create({
   habitRate: { alignItems: 'flex-end' },
   habitRateText: { fontSize: 16, fontWeight: '700', color: '#6C63FF' },
   habitRateLabel: { fontSize: 11, color: '#9CA3AF' },
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 60 },
   emptyEmoji: { fontSize: 48 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: '#1A1B2E' },
+  emptySubtitle: { fontSize: 14, color: '#8B8FA8', textAlign: 'center', lineHeight: 20 },
 });

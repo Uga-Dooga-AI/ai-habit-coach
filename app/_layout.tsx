@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuthInit, useAuth } from '@/hooks/use-auth';
 import { initObservability, recordNonFatal, setExperimentContext } from '@/lib/observability';
+import { ErrorBoundary } from '@/components/error-boundary';
 import { useHabitStore } from '@/stores/habit-store';
 import { setupAndroidChannel } from '@/services/notifications';
 import {
@@ -114,19 +115,21 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <AnalyticsProvider tracker={tracker}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <ScreenTracker />
-        <OnboardingGuard />
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-          <Stack.Screen name="paywall" options={{ presentation: 'modal', headerShown: false }} />
-          <Stack.Screen name="edit-habit/[id]" options={{ presentation: 'modal', title: 'Edit Habit' }} />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </AnalyticsProvider>
+    <ErrorBoundary>
+      <AnalyticsProvider tracker={tracker}>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <ScreenTracker />
+          <OnboardingGuard />
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+            <Stack.Screen name="paywall" options={{ presentation: 'modal', headerShown: false }} />
+            <Stack.Screen name="edit-habit/[id]" options={{ presentation: 'modal', title: 'Edit Habit' }} />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </AnalyticsProvider>
+    </ErrorBoundary>
   );
 }

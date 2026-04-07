@@ -203,6 +203,8 @@ export default function SettingsScreen() {
               <TouchableOpacity
                 style={styles.timeButton}
                 onPress={() => setShowStartPicker(true)}
+                accessibilityRole="button"
+                accessibilityLabel={`Quiet hours start: ${quietStart ?? 'Not set'}. Tap to change`}
               >
                 <Text style={styles.timeButtonText}>{quietStart ?? 'Not set'}</Text>
               </TouchableOpacity>
@@ -216,6 +218,8 @@ export default function SettingsScreen() {
               <TouchableOpacity
                 style={styles.timeButton}
                 onPress={() => setShowEndPicker(true)}
+                accessibilityRole="button"
+                accessibilityLabel={`Quiet hours end: ${quietEnd ?? 'Not set'}. Tap to change`}
               >
                 <Text style={styles.timeButtonText}>{quietEnd ?? 'Not set'}</Text>
               </TouchableOpacity>
@@ -240,9 +244,11 @@ export default function SettingsScreen() {
                   style={styles.row}
                   onPress={() => router.push({ pathname: '/paywall', params: { source: 'settings' } })}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Manage subscription"
                 >
                   <Text style={[styles.rowTitle, { color: '#6C63FF' }]}>Manage Subscription</Text>
-                  <Text style={styles.chevron}>›</Text>
+                  <Text style={styles.chevron} accessibilityElementsHidden>›</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -258,14 +264,14 @@ export default function SettingsScreen() {
               <Text style={styles.rowValue}>{userEmail}</Text>
             </View>
             <View style={styles.divider} />
-            <TouchableOpacity style={styles.row} onPress={handleSignOut} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.row} onPress={handleSignOut} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Sign out">
               <Text style={[styles.rowTitle, { color: '#EF4444' }]}>Sign Out</Text>
-              <Text style={styles.chevron}>›</Text>
+              <Text style={styles.chevron} accessibilityElementsHidden>›</Text>
             </TouchableOpacity>
             <View style={styles.divider} />
-            <TouchableOpacity style={styles.row} onPress={handleDeleteAccount} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.row} onPress={handleDeleteAccount} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Delete account">
               <Text style={[styles.rowTitle, { color: '#EF4444' }]}>Delete Account</Text>
-              <Text style={styles.chevron}>›</Text>
+              <Text style={styles.chevron} accessibilityElementsHidden>›</Text>
             </TouchableOpacity>
           </View>
         </View>
