@@ -1,98 +1,351 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
+  SafeAreaView,
+  RefreshControl,
+  Modal,
+  Animated,
+} from 'react-native';
+import { useAuth } from '@/hooks/use-auth';
+import { useHabitStore } from '@/stores/habit-store';
+import type { HabitWithStreak } from '@/services/types';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+function getDayGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  if (h < 21) return 'Good evening';
+  return 'Good night';
+}
 
-export default function HomeScreen() {
+function getTodayLabel(): string {
+  return new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+interface AIMessageModalProps {
+  visible: boolean;
+  message: string;
+  habitName: string;
+  onClose: () => void;
+}
+
+function AIMessageModal({ visible, message, habitName, onClose }: AIMessageModalProps) {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
+      <TouchableOpacity style={styles.modalOverlay} onPress={onClose} activeOpacity={1}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalEmoji}>🎉</Text>
+          <Text style={styles.modalHabit}>{habitName}</Text>
+          <Text style={styles.modalMessage}>{message}</Text>
+          <TouchableOpacity style={styles.modalButton} onPress={onClose}>
+            <Text style={styles.modalButtonText}>Keep Going!</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+interface HabitCardProps {
+  habit: HabitWithStreak;
+  onComplete: (habit: HabitWithStreak) => void;
+  onSkip: (habit: HabitWithStreak) => void;
+}
+
+function HabitCard({ habit, onComplete, onSkip }: HabitCardProps) {
+  const status = habit.todayLog?.status;
+  const isDone = status === 'done';
+  const isSkipped = status === 'skipped';
+  const isPending = !status || status === 'pending';
+
+  return (
+    <View style={[styles.card, isDone && styles.cardDone, isSkipped && styles.cardSkipped]}>
+      <View style={styles.cardLeft}>
+        <Text style={styles.cardIcon}>{habit.icon}</Text>
+        <View style={styles.cardInfo}>
+          <Text style={[styles.cardName, isDone && styles.cardNameDone]}>{habit.name}</Text>
+          <View style={styles.cardMeta}>
+            {habit.currentStreak > 0 && (
+              <View style={styles.streakBadge}>
+                <Text style={styles.streakBadgeText}>🔥 {habit.currentStreak}</Text>
+              </View>
+            )}
+            <Text style={styles.cardCategory}>{habit.category}</Text>
+          </View>
+        </View>
+      </View>
+
+      {isPending && (
+        <View style={styles.cardActions}>
+          <TouchableOpacity style={styles.skipBtn} onPress={() => onSkip(habit)}>
+            <Text style={styles.skipBtnText}>Skip</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.doneBtn} onPress={() => onComplete(habit)}>
+            <Text style={styles.doneBtnText}>Done ✓</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {isDone && (
+        <View style={styles.doneIndicator}>
+          <Text style={styles.doneIndicatorText}>✓</Text>
+        </View>
+      )}
+
+      {isSkipped && (
+        <View style={styles.skippedIndicator}>
+          <Text style={styles.skippedIndicatorText}>–</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+export default function TodayScreen() {
+  const { state, isSignedIn, userId } = useAuth();
+  const {
+    loadHabits,
+    loadTodayLogs,
+    loadRecentLogs,
+    loadProfile,
+    completeHabit,
+    skipHabit,
+    habitsWithStreaks,
+    completionRateToday,
+    profile,
+  } = useHabitStore();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [aiModal, setAiModal] = useState<{ visible: boolean; message: string; habitName: string }>({
+    visible: false,
+    message: '',
+    habitName: '',
+  });
+
+  const profileId = profile?.id;
+
+  const loadData = useCallback(async () => {
+    if (!userId) return;
+    await loadProfile(userId);
+    const currentProfile = useHabitStore.getState().profile;
+    if (!currentProfile) return;
+    await Promise.all([
+      loadHabits(currentProfile.id),
+      loadTodayLogs(currentProfile.id),
+      loadRecentLogs(currentProfile.id),
+    ]);
+  }, [userId, loadProfile, loadHabits, loadTodayLogs, loadRecentLogs]);
+
+  useEffect(() => {
+    if (isSignedIn) {
+      loadData();
+    }
+  }, [isSignedIn, loadData]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  const handleComplete = async (habit: HabitWithStreak) => {
+    if (!profileId) return;
+    const message = await completeHabit(habit.id, profileId);
+    setAiModal({ visible: true, message, habitName: habit.name });
+  };
+
+  const handleSkip = async (habit: HabitWithStreak) => {
+    if (!profileId) return;
+    await skipHabit(habit.id, profileId);
+  };
+
+  const habits = habitsWithStreaks();
+  const rate = completionRateToday();
+  const doneCount = habits.filter((h) => h.todayLog?.status === 'done').length;
+  const totalCount = habits.length;
+
+  if (!isSignedIn) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>🔑</Text>
+          <Text style={styles.emptyTitle}>Sign in to track habits</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <FlatList
+        data={habits}
+        keyExtractor={(h) => h.id}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6C63FF" />}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text style={styles.greeting}>{getDayGreeting()}</Text>
+            <Text style={styles.date}>{getTodayLabel()}</Text>
+
+            {totalCount > 0 && (
+              <View style={styles.progressCard}>
+                <View style={styles.progressRow}>
+                  <Text style={styles.progressLabel}>Today's Progress</Text>
+                  <Text style={styles.progressCount}>{doneCount}/{totalCount}</Text>
+                </View>
+                <View style={styles.progressBar}>
+                  <Animated.View
+                    style={[styles.progressFill, { width: `${Math.round(rate * 100)}%` }]}
+                  />
+                </View>
+                <Text style={styles.progressPercent}>
+                  {rate === 1 ? '🎉 All done!' : `${Math.round(rate * 100)}% complete`}
+                </Text>
+              </View>
+            )}
+
+            <Text style={styles.sectionTitle}>
+              {totalCount === 0 ? 'Your Habits' : `${totalCount - doneCount} remaining`}
+            </Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <HabitCard habit={item} onComplete={handleComplete} onSkip={handleSkip} />
+        )}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>🌱</Text>
+            <Text style={styles.emptyTitle}>No habits yet</Text>
+            <Text style={styles.emptySubtitle}>Complete onboarding to set up your first habits</Text>
+          </View>
+        }
+      />
+
+      <AIMessageModal
+        visible={aiModal.visible}
+        message={aiModal.message}
+        habitName={aiModal.habitName}
+        onClose={() => setAiModal((s) => ({ ...s, visible: false }))}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: { flex: 1, backgroundColor: '#F8F9FF' },
+  list: { padding: 20, paddingBottom: 100 },
+  header: { marginBottom: 8 },
+  greeting: { fontSize: 24, fontWeight: '700', color: '#1A1B2E', marginBottom: 2 },
+  date: { fontSize: 14, color: '#8B8FA8', marginBottom: 20 },
+  progressCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E8EAF2',
+  },
+  progressRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  progressLabel: { fontSize: 14, fontWeight: '600', color: '#1A1B2E' },
+  progressCount: { fontSize: 14, fontWeight: '700', color: '#6C63FF' },
+  progressBar: { height: 8, backgroundColor: '#EEF0FB', borderRadius: 4, marginBottom: 8 },
+  progressFill: { height: 8, backgroundColor: '#6C63FF', borderRadius: 4 },
+  progressPercent: { fontSize: 13, color: '#8B8FA8' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1A1B2E', marginBottom: 12 },
+  card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#E8EAF2',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  cardDone: { borderColor: '#D1FAE5', backgroundColor: '#F0FDF4' },
+  cardSkipped: { borderColor: '#F1F5F9', backgroundColor: '#F8FAFC', opacity: 0.7 },
+  cardLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  cardIcon: { fontSize: 28, width: 40, textAlign: 'center' },
+  cardInfo: { flex: 1 },
+  cardName: { fontSize: 15, fontWeight: '600', color: '#1A1B2E', marginBottom: 4 },
+  cardNameDone: { color: '#059669', textDecorationLine: 'line-through' },
+  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  streakBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: '#FFF7ED',
+    borderRadius: 10,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  streakBadgeText: { fontSize: 11, fontWeight: '700', color: '#EA580C' },
+  cardCategory: { fontSize: 11, color: '#9CA3AF', textTransform: 'capitalize' },
+  cardActions: { flexDirection: 'row', gap: 8 },
+  skipBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#E8EAF2',
   },
+  skipBtnText: { fontSize: 13, color: '#9CA3AF', fontWeight: '600' },
+  doneBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#6C63FF',
+  },
+  doneBtnText: { fontSize: 13, color: '#fff', fontWeight: '700' },
+  doneIndicator: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#D1FAE5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneIndicatorText: { fontSize: 16, color: '#059669', fontWeight: '700' },
+  skippedIndicator: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  skippedIndicatorText: { fontSize: 20, color: '#9CA3AF', fontWeight: '700' },
+  emptyState: { alignItems: 'center', paddingVertical: 60, gap: 12 },
+  emptyEmoji: { fontSize: 48 },
+  emptyTitle: { fontSize: 20, fontWeight: '700', color: '#1A1B2E' },
+  emptySubtitle: { fontSize: 14, color: '#8B8FA8', textAlign: 'center' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 28,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 360,
+    gap: 12,
+  },
+  modalEmoji: { fontSize: 48 },
+  modalHabit: { fontSize: 18, fontWeight: '700', color: '#1A1B2E', textAlign: 'center' },
+  modalMessage: { fontSize: 16, color: '#6B6F8A', textAlign: 'center', lineHeight: 24 },
+  modalButton: {
+    backgroundColor: '#6C63FF',
+    borderRadius: 14,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    marginTop: 8,
+  },
+  modalButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });
