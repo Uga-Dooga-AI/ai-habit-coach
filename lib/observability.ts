@@ -21,6 +21,7 @@ function getCrashlyticsModule(): {
     recordError(error: Error, reason?: string): void;
   };
 } | null {
+  if (process.env.EXPO_PUBLIC_FIREBASE_ENABLED === 'false') return null;
   try {
     return require('@react-native-firebase/crashlytics');
   } catch {

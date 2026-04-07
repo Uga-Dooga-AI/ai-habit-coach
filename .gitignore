@@ -143,4 +143,11 @@ vite.config.ts.timestamp-*
 ios/
 android/
 web-build/
+
+# Firebase real credentials — never commit; use EAS secrets / CI env instead
+# Placeholder files in config/firebase/placeholder/ ARE tracked and safe to commit
+GoogleService-Info.plist
+google-services.json
+!config/firebase/placeholder/GoogleService-Info.plist
+!config/firebase/placeholder/google-services.json
 expo-env.d.ts
