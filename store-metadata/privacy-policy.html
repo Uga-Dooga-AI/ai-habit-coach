@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - AI Habit Coach</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.7; color: #333; max-width: 800px; margin: 0 auto; padding: 24px 16px 64px; background: #fafafa; }
+    h1 { font-size: 28px; margin-bottom: 8px; color: #1a1b2e; }
+    h2 { font-size: 20px; margin: 32px 0 12px; color: #1a1b2e; }
+    h3 { font-size: 16px; margin: 20px 0 8px; color: #1a1b2e; }
+    p, li { font-size: 15px; margin-bottom: 12px; }
+    ul { padding-left: 24px; }
+    .effective { color: #6b6f8a; font-size: 14px; margin-bottom: 32px; }
+    a { color: #6c63ff; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    th, td { text-align: left; padding: 10px 12px; border: 1px solid #e0e0e0; font-size: 14px; }
+    th { background: #f0f0f5; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>Privacy Policy</h1>
+  <p class="effective">Effective Date: April 7, 2026</p>
+
+  <p>Uga Dooga ("we", "us", or "our") operates the <strong>AI Habit Coach</strong> mobile application (the "App"). This Privacy Policy explains how we collect, use, and protect your personal information when you use the App.</p>
+
+  <h2>1. Information We Collect</h2>
+
+  <h3>1.1 Account Information</h3>
+  <p>When you create an account, we collect your email address and an optional display name. Authentication is handled by Firebase Authentication.</p>
+
+  <h3>1.2 Habit and Usage Data</h3>
+  <p>We collect data you provide within the App, including:</p>
+  <ul>
+    <li>Habits you create (name, category, frequency, reminder times)</li>
+    <li>Daily habit completions, skips, and streaks</li>
+    <li>Goals you select during onboarding</li>
+    <li>AI-generated coaching insights and weekly analyses</li>
+  </ul>
+
+  <h3>1.3 Analytics and Diagnostics</h3>
+  <p>We collect anonymized usage data to improve the App:</p>
+  <ul>
+    <li><strong>Firebase Analytics</strong> &mdash; screen views, feature engagement, onboarding funnel events</li>
+    <li><strong>Firebase Crashlytics</strong> &mdash; crash reports, non-fatal errors, device model, OS version, app version</li>
+    <li><strong>AppMetrica</strong> &mdash; session analytics and experiment data</li>
+  </ul>
+
+  <h3>1.4 Subscription Information</h3>
+  <p>Subscription purchases are processed by Apple (App Store) or Google (Google Play) and managed through RevenueCat. We do not collect or store your payment card details. We receive a transaction identifier, subscription status, and pricing tier.</p>
+
+  <h3>1.5 Information We Do NOT Collect</h3>
+  <p>We do not collect location data, health data, contacts, photos, or any biometric information.</p>
+
+  <h2>2. How We Use Your Information</h2>
+  <table>
+    <thead>
+      <tr><th>Purpose</th><th>Data Used</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Provide core habit-tracking features</td><td>Account info, habit data</td></tr>
+      <tr><td>Generate AI coaching insights</td><td>Habit logs, completion rates</td></tr>
+      <tr><td>Send push notification reminders</td><td>Reminder times, notification tokens</td></tr>
+      <tr><td>Manage your subscription</td><td>Transaction identifiers via RevenueCat</td></tr>
+      <tr><td>Improve app quality and fix bugs</td><td>Analytics, crash reports</td></tr>
+      <tr><td>Run A/B experiments to improve UX</td><td>Anonymized analytics events</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3. Data Storage and Security</h2>
+  <p>Your habit data is stored in Supabase (PostgreSQL) with Row-Level Security (RLS) policies, ensuring that only you can access your own data. All data is transmitted over HTTPS/TLS encryption.</p>
+  <p>Authentication tokens are stored securely on your device using Expo SecureStore.</p>
+
+  <h2>4. Third-Party Services</h2>
+  <p>We use the following third-party services that may process your data according to their own privacy policies:</p>
+  <ul>
+    <li><strong>Firebase</strong> (Google) &mdash; Authentication, Analytics, Crashlytics</li>
+    <li><strong>Supabase</strong> &mdash; Database hosting</li>
+    <li><strong>RevenueCat</strong> &mdash; Subscription management</li>
+    <li><strong>AppMetrica</strong> (Yandex) &mdash; Analytics</li>
+    <li><strong>Anthropic (Claude API)</strong> &mdash; AI coaching text generation</li>
+    <li><strong>Expo</strong> &mdash; Push notification delivery</li>
+  </ul>
+
+  <h2>5. Push Notifications</h2>
+  <p>If you grant notification permission, we send daily habit reminders at your chosen times and adaptive nudges if habits remain incomplete. You can disable notifications at any time in your device settings or in the App's settings screen.</p>
+
+  <h2>6. Data Retention</h2>
+  <p>We retain your data for as long as your account is active. If you delete your account, all associated data (profile, habits, logs, insights) is permanently deleted from our servers within 30 days.</p>
+
+  <h2>7. Children's Privacy</h2>
+  <p>The App is not intended for children under 13. We do not knowingly collect personal information from children under 13. If we become aware that a child under 13 has provided us with personal data, we will delete it promptly.</p>
+
+  <h2>8. Your Rights</h2>
+  <p>Depending on your jurisdiction, you may have the right to:</p>
+  <ul>
+    <li>Access, correct, or delete your personal data</li>
+    <li>Export your data in a portable format</li>
+    <li>Withdraw consent for analytics collection</li>
+    <li>Request restriction of processing</li>
+  </ul>
+  <p>To exercise any of these rights, contact us at the address below.</p>
+
+  <h2>9. Changes to This Policy</h2>
+  <p>We may update this Privacy Policy from time to time. We will notify you of material changes through the App or by email. Continued use of the App after changes constitutes acceptance of the updated policy.</p>
+
+  <h2>10. Contact Us</h2>
+  <p>If you have questions about this Privacy Policy, please contact us at:</p>
+  <p><strong>Email:</strong> <a href="mailto:privacy@ugadooga.com">privacy@ugadooga.com</a></p>
+  <p><strong>Uga Dooga</strong></p>
+</body>
+</html>
