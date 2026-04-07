@@ -36,11 +36,13 @@ const remoteConfig = new StubRemoteConfigProvider({
   reminders_enabled: 'true',
   weekly_insights_enabled: 'true',
   onboarding_variant: 'control',
-  // Sprint 2 A/B experiments.
   // paywall_cta_variant: 'a' = "Начать 7 дней бесплатно" (control), 'b' = "Попробовать Premium"
   paywall_cta_variant: 'a',
   // paywall_price_display: 'monthly_first' (control) | 'annual_first'
   paywall_price_display: 'monthly_first',
+  // nudge_style: coaching tone for AI check-in messages
+  // 'motivational' (control) | 'gentle' | 'strict'
+  nudge_style: 'motivational',
   active_experiment_ids: '',
 });
 
@@ -124,6 +126,15 @@ export default function RootLayout() {
         tracker.setUserProperty(AnalyticsUserProperty.PAYWALL_PRICE_DISPLAY, paywallPriceDisplay);
         if (paywallPriceDisplay !== 'monthly_first') {
           const ev = AnalyticsEvents.Experiment.experimentExposure('paywall_price_display', paywallPriceDisplay);
+          tracker.logEvent(ev.name, ev.params);
+        }
+      }
+
+      const nudgeStyle = remoteConfig.variantValue('nudge_style');
+      if (nudgeStyle) {
+        tracker.setUserProperty(AnalyticsUserProperty.NUDGE_STYLE, nudgeStyle);
+        if (nudgeStyle !== 'motivational') {
+          const ev = AnalyticsEvents.Experiment.experimentExposure('nudge_style', nudgeStyle);
           tracker.logEvent(ev.name, ev.params);
         }
       }
