@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useAuth } from '@/hooks/use-auth';
 import { useHabitStore } from '@/stores/habit-store';
+import { useAnalytics, AnalyticsEvents } from '@/services/analytics';
 import type { HabitWithStreak } from '@/services/types';
 
 function getDayGreeting(): string {
@@ -24,6 +25,15 @@ function getDayGreeting(): string {
 
 function getTodayLabel(): string {
   return new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+function getTimeOfDay(): string {
+  const h = new Date().getHours();
+  if (h < 6) return 'night';
+  if (h < 12) return 'morning';
+  if (h < 17) return 'afternoon';
+  if (h < 21) return 'evening';
+  return 'night';
 }
 
 interface AIMessageModalProps {
@@ -116,8 +126,10 @@ export default function TodayScreen() {
     skipHabit,
     habitsWithStreaks,
     completionRateToday,
+    completionRateLast7Days,
     profile,
   } = useHabitStore();
+  const analytics = useAnalytics();
 
   const [refreshing, setRefreshing] = useState(false);
   const [aiModal, setAiModal] = useState<{ visible: boolean; message: string; habitName: string }>({
@@ -146,6 +158,16 @@ export default function TodayScreen() {
     }
   }, [isSignedIn, loadData]);
 
+  // Fire today_view_opened once on mount when signed in
+  useEffect(() => {
+    if (!isSignedIn) return;
+    const habits = habitsWithStreaks();
+    const currentStreak = habits.reduce((max, h) => Math.max(max, h.currentStreak), 0);
+    const rate7d = completionRateLast7Days();
+    const ev = AnalyticsEvents.Progress.dashboardViewed(habits.length, currentStreak, rate7d);
+    analytics.logEvent(ev.name, ev.params);
+  }, [isSignedIn]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
@@ -155,12 +177,28 @@ export default function TodayScreen() {
   const handleComplete = async (habit: HabitWithStreak) => {
     if (!profileId) return;
     const message = await completeHabit(habit.id, profileId);
+
+    const ev = AnalyticsEvents.Habits.habitCompleted(
+      habit.id,
+      habit.category,
+      habit.currentStreak,
+      getTimeOfDay(),
+      0,
+    );
+    analytics.logEvent(ev.name, ev.params);
+
+    const aiEv = AnalyticsEvents.AI.aiCoachingMessageShown('check_in_success', habit.category);
+    analytics.logEvent(aiEv.name, aiEv.params);
+
     setAiModal({ visible: true, message, habitName: habit.name });
   };
 
   const handleSkip = async (habit: HabitWithStreak) => {
     if (!profileId) return;
     await skipHabit(habit.id, profileId);
+
+    const ev = AnalyticsEvents.Habits.habitSkipped(habit.id, habit.category, 'user_skip', habit.currentStreak);
+    analytics.logEvent(ev.name, ev.params);
   };
 
   const habits = habitsWithStreaks();

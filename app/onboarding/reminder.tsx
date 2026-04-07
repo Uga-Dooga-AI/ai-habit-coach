@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useHabitStore } from '@/stores/habit-store';
 import { useAuth } from '@/hooks/use-auth';
 import { requestNotificationPermission } from '@/services/notifications';
+import { useAnalytics, AnalyticsEvents } from '@/services/analytics';
 
 const TIME_OPTIONS = [
   { label: 'Early Morning', time: '06:00', icon: '🌅' },
@@ -36,6 +37,8 @@ export default function OnboardingReminderScreen() {
   const [loading, setLoading] = useState(false);
   const { state } = useAuth();
   const { addHabit, completeOnboarding, loadProfile, profile } = useHabitStore();
+  const analytics = useAnalytics();
+  const onboardingStartRef = useRef<number>(Date.now());
 
   const userId = state.status === 'signed_in' ? state.userId : null;
 
@@ -58,8 +61,11 @@ export default function OnboardingReminderScreen() {
       }
 
       // Request notification permission if a time was selected
+      let notifGranted = false;
       if (selectedTime) {
-        await requestNotificationPermission();
+        notifGranted = await requestNotificationPermission();
+        const notifEv = AnalyticsEvents.Onboarding.onboardingNotificationPermission(notifGranted);
+        analytics.logEvent(notifEv.name, notifEv.params);
       }
 
       // Parse habits from params
@@ -78,8 +84,21 @@ export default function OnboardingReminderScreen() {
         });
       }
 
+      // Fire reminder_set if a time was chosen and notification was granted
+      if (selectedTime && notifGranted) {
+        const reminderEv = AnalyticsEvents.Nudges.reminderSet('onboarding', selectedTime, false);
+        analytics.logEvent(reminderEv.name, reminderEv.params);
+      }
+
+      const stepEv = AnalyticsEvents.Onboarding.onboardingStepCompleted('reminder_setup', 2, 3);
+      analytics.logEvent(stepEv.name, stepEv.params);
+
       // Mark onboarding as done
       await completeOnboarding(currentProfile.id, goal);
+
+      const durationSec = Math.round((Date.now() - onboardingStartRef.current) / 1000);
+      const completedEv = AnalyticsEvents.Onboarding.onboardingCompleted(durationSec, habitsToCreate.length);
+      analytics.logEvent(completedEv.name, completedEv.params);
 
       router.replace('/(tabs)');
     } catch (e) {

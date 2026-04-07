@@ -6,13 +6,45 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuthInit, useAuth } from '@/hooks/use-auth';
-import { initObservability, recordNonFatal } from '@/lib/observability';
+import { initObservability, recordNonFatal, setExperimentContext } from '@/lib/observability';
 import { useHabitStore } from '@/stores/habit-store';
 import { setupAndroidChannel } from '@/services/notifications';
+import {
+  AnalyticsProvider,
+  CompositeTracker,
+  FirebaseAnalyticsTracker,
+  AppMetricaTracker,
+  StubRemoteConfigProvider,
+  AnalyticsEvents,
+  useScreenTracking,
+} from '@/services/analytics';
 
 export const unstable_settings = {
   anchor: '(tabs)',
 };
+
+// Deferred mode: StubRemoteConfigProvider holds defaults until Firebase credentials arrive.
+// Switch to FirebaseRemoteConfigProvider once google-services.json / GoogleService-Info.plist
+// are present and @react-native-firebase packages are linked.
+const remoteConfig = new StubRemoteConfigProvider({
+  habit_catalog_items: 'default',
+  ai_model_haiku: 'claude-haiku-4-5-20251001',
+  ai_model_sonnet: 'claude-sonnet-4-6',
+  reminders_enabled: 'true',
+  weekly_insights_enabled: 'true',
+  onboarding_variant: 'control',
+  active_experiment_ids: '',
+});
+
+const tracker = new CompositeTracker([
+  new FirebaseAnalyticsTracker(),
+  new AppMetricaTracker(remoteConfig),
+]);
+
+function ScreenTracker() {
+  useScreenTracking();
+  return null;
+}
 
 function OnboardingGuard() {
   const { isSignedIn, initialized, userId } = useAuth();
@@ -41,17 +73,32 @@ export default function RootLayout() {
       recordNonFatal('observability_init', err),
     );
     setupAndroidChannel().catch(() => {});
+
+    // Bootstrap Remote Config. In deferred (stub) mode this resolves immediately.
+    // When Firebase credentials are live, swap to FirebaseRemoteConfigProvider above
+    // and this will fetch real experiment assignments.
+    remoteConfig.fetchAndActivate().then(() => {
+      const onboardingVariant = remoteConfig.variantValue('onboarding_variant');
+      if (onboardingVariant && onboardingVariant !== 'control') {
+        const ev = AnalyticsEvents.Experiment.experimentExposure('onboarding_variant', onboardingVariant);
+        tracker.logEvent(ev.name, ev.params);
+        setExperimentContext({ experimentName: 'onboarding_variant', variantName: onboardingVariant }).catch(() => {});
+      }
+    }).catch(() => {});
   }, []);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <OnboardingGuard />
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <AnalyticsProvider tracker={tracker}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <ScreenTracker />
+        <OnboardingGuard />
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </AnalyticsProvider>
   );
 }

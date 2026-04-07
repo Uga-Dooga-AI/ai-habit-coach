@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useAuth } from '@/hooks/use-auth';
 import { useHabitStore } from '@/stores/habit-store';
+import { useAnalytics, AnalyticsEvents } from '@/services/analytics';
 
 function formatWeek(start: string, end: string): string {
   const s = new Date(start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -30,8 +31,11 @@ export default function InsightsScreen() {
     habits,
     latestInsight,
   } = useHabitStore();
+  const analytics = useAnalytics();
 
   const [generating, setGenerating] = useState(false);
+  const insightViewStartRef = useRef<number | null>(null);
+  const viewedInsightIdRef = useRef<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!userId) return;
@@ -49,11 +53,27 @@ export default function InsightsScreen() {
     if (isSignedIn) loadData();
   }, [isSignedIn, loadData]);
 
+  // Fire weekly_insight_viewed when insight is present and not yet tracked
+  useEffect(() => {
+    if (!latestInsight) return;
+    if (viewedInsightIdRef.current === latestInsight.id) return;
+
+    viewedInsightIdRef.current = latestInsight.id;
+    insightViewStartRef.current = Date.now();
+
+    const period = `${latestInsight.weekStart}_${latestInsight.weekEnd}`;
+    const ev = AnalyticsEvents.Progress.weeklyInsightViewed(latestInsight.id, period, 0);
+    analytics.logEvent(ev.name, ev.params);
+  }, [latestInsight, analytics]);
+
   const handleGenerate = async () => {
     if (!profile) return;
     setGenerating(true);
     try {
       await generateInsights(profile.id);
+
+      const ev = AnalyticsEvents.AI.aiInsightGenerated('weekly_habits', habits.length);
+      analytics.logEvent(ev.name, ev.params);
     } finally {
       setGenerating(false);
     }

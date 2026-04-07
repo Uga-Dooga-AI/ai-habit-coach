@@ -32,6 +32,12 @@ export const AnalyticsEvents = {
 
     onboardingSkipped: (stepName: string, stepIndex: number): AnalyticsEvent =>
       event('onboarding_skipped', { step_name: stepName, step_index: stepIndex }),
+
+    habitTemplateSelected: (templateId: string, templateName: string): AnalyticsEvent =>
+      event('habit_template_selected', { template_id: templateId, template_name: templateName }),
+
+    customHabitCreated: (habitName: string): AnalyticsEvent =>
+      event('custom_habit_created', { habit_name: habitName }),
   },
 
   Habits: {

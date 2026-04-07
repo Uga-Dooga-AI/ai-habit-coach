@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,26 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { GOAL_OPTIONS } from '@/services/types';
+import { useAnalytics, AnalyticsEvents } from '@/services/analytics';
 
 export default function OnboardingGoalScreen() {
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
+  const analytics = useAnalytics();
+
+  useEffect(() => {
+    const ev = AnalyticsEvents.Onboarding.onboardingStarted();
+    analytics.logEvent(ev.name, ev.params);
+  }, [analytics]);
 
   const handleNext = () => {
     if (!selectedGoal) return;
+
+    const stepEv = AnalyticsEvents.Onboarding.onboardingStepCompleted('goal_selection', 0, 3);
+    analytics.logEvent(stepEv.name, stepEv.params);
+
+    const goalsEv = AnalyticsEvents.Onboarding.onboardingGoalsSet(1, selectedGoal);
+    analytics.logEvent(goalsEv.name, goalsEv.params);
+
     router.push({ pathname: '/onboarding/habits', params: { goal: selectedGoal } });
   };
 

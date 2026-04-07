@@ -10,6 +10,7 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { useHabitStore } from '@/stores/habit-store';
 import { calculateStreak } from '@/services/habits';
+import { useAnalytics, AnalyticsEvents } from '@/services/analytics';
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -41,7 +42,7 @@ function HeatmapCalendar() {
     <View style={heatStyles.container}>
       <Text style={heatStyles.title}>Activity (Last 6 Weeks)</Text>
       <View style={heatStyles.grid}>
-        {days.map((day, i) => (
+        {days.map((day) => (
           <View
             key={day.date}
             style={[heatStyles.cell, { backgroundColor: cellColor(day.rate) }]}
@@ -113,6 +114,7 @@ export default function ProgressScreen() {
     habitsWithStreaks,
     completionRateLast7Days,
   } = useHabitStore();
+  const analytics = useAnalytics();
 
   const loadData = useCallback(async () => {
     if (!userId) return;
@@ -128,6 +130,16 @@ export default function ProgressScreen() {
   useEffect(() => {
     if (isSignedIn) loadData();
   }, [isSignedIn, loadData]);
+
+  // Fire progress_view_opened on mount when signed in
+  useEffect(() => {
+    if (!isSignedIn) return;
+    const habitsWS = habitsWithStreaks();
+    const currentStreak = habitsWS.reduce((max, h) => Math.max(max, h.currentStreak), 0);
+    const rate7d = completionRateLast7Days();
+    const ev = AnalyticsEvents.Progress.dashboardViewed(habits.length, currentStreak, rate7d);
+    analytics.logEvent(ev.name, { ...ev.params, screen: 'progress' });
+  }, [isSignedIn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const habitsWS = habitsWithStreaks();
   const rate7d = completionRateLast7Days();

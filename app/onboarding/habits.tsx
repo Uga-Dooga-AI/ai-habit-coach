@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { HABIT_CATALOG } from '@/services/types';
+import { useAnalytics, AnalyticsEvents } from '@/services/analytics';
 
 type CatalogItem = typeof HABIT_CATALOG[number];
 
@@ -18,8 +19,23 @@ export default function OnboardingHabitsScreen() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [customHabit, setCustomHabit] = useState('');
   const [customHabits, setCustomHabits] = useState<string[]>([]);
+  const analytics = useAnalytics();
 
-  const toggle = (name: string) => {
+  const toggle = (item: CatalogItem) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(item.name)) {
+        next.delete(item.name);
+      } else {
+        next.add(item.name);
+        const ev = AnalyticsEvents.Onboarding.habitTemplateSelected(item.name, item.name);
+        analytics.logEvent(ev.name, ev.params);
+      }
+      return next;
+    });
+  };
+
+  const toggleCustom = (name: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
@@ -34,6 +50,9 @@ export default function OnboardingHabitsScreen() {
     setCustomHabits((prev) => [...prev, trimmed]);
     setSelected((prev) => new Set([...prev, trimmed]));
     setCustomHabit('');
+
+    const ev = AnalyticsEvents.Onboarding.customHabitCreated(trimmed);
+    analytics.logEvent(ev.name, ev.params);
   };
 
   const totalSelected = selected.size;
@@ -57,6 +76,16 @@ export default function OnboardingHabitsScreen() {
         isAiSuggested: false,
       }));
 
+    const stepEv = AnalyticsEvents.Onboarding.onboardingStepCompleted('habit_selection', 1, 3);
+    analytics.logEvent(stepEv.name, stepEv.params);
+
+    const summaryEv = AnalyticsEvents.Onboarding.onboardingHabitsSelected(
+      totalSelected,
+      catalogSelected.length,
+      customSelected.length,
+    );
+    analytics.logEvent(summaryEv.name, summaryEv.params);
+
     const habits = JSON.stringify([...catalogSelected, ...customSelected]);
     router.push({ pathname: '/onboarding/reminder', params: { goal, habits } });
   };
@@ -79,7 +108,7 @@ export default function OnboardingHabitsScreen() {
               <TouchableOpacity
                 key={item.name}
                 style={[styles.habitCard, isSelected && styles.habitCardSelected]}
-                onPress={() => toggle(item.name)}
+                onPress={() => toggle(item)}
                 activeOpacity={0.7}
               >
                 <Text style={styles.habitIcon}>{item.icon}</Text>
@@ -103,7 +132,7 @@ export default function OnboardingHabitsScreen() {
               <TouchableOpacity
                 key={name}
                 style={[styles.customTag, selected.has(name) && styles.customTagSelected]}
-                onPress={() => toggle(name)}
+                onPress={() => toggleCustom(name)}
               >
                 <Text style={[styles.customTagText, selected.has(name) && styles.customTagTextSelected]}>
                   ✨ {name}
