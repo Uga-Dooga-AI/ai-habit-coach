@@ -1,12 +1,9 @@
 -- AI Habit Coach initial schema
 -- Run this in Supabase SQL Editor to set up the database
 
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- User profiles (linked to Firebase UID)
 CREATE TABLE IF NOT EXISTS profiles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   firebase_uid TEXT UNIQUE NOT NULL,
   display_name TEXT,
   goal TEXT, -- e.g. "build_consistency", "improve_health", "reduce_stress"
@@ -17,7 +14,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 -- Habits table
 CREATE TABLE IF NOT EXISTS habits (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'general', -- health, mindfulness, fitness, learning, productivity
@@ -34,7 +31,7 @@ CREATE TABLE IF NOT EXISTS habits (
 
 -- Habit logs (one per habit per day)
 CREATE TABLE IF NOT EXISTS habit_logs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   habit_id UUID NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   log_date DATE NOT NULL,
@@ -47,7 +44,7 @@ CREATE TABLE IF NOT EXISTS habit_logs (
 
 -- Weekly insights
 CREATE TABLE IF NOT EXISTS weekly_insights (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   week_start DATE NOT NULL,
   week_end DATE NOT NULL,
